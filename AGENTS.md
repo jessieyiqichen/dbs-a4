@@ -12,9 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What Assignment 4 adds (user decisions 2026-10-20/21)
 - Accounts (Clerk) and a database (Supabase), so classmates can sign up and each person sees only their own goals and jobs, on any device.
-- Jobs from the Greenhouse Job Board API, tied into the main loop: each person adds the companies they are targeting, searches those companies' open roles by title, saves the ones they want, and marking a saved job "Applied" counts one toward an applications goal (one more fish for Titi).
-- Why Greenhouse and user-added companies: Greenhouse has no cross-company search, and a fixed company list fails classmates who target different companies (user, 2026-10-21). Rejected: Remotive (search ignored, terms forbid listings behind sign-in), The Muse (no keyword search, noisy categories), Adzuna (needs a key, free tier is "for evaluation", logo on every listing), Himalayas (remote jobs only), a Divvy app (the official Divvy app already does live availability).
-- Ashby (OpenAI, Perplexity...) is not in the first version. `source` columns leave room to add it later.
+- Jobs from the public job boards of three hiring systems (Greenhouse, Ashby, Lever), tied into the main loop: each person adds the companies they are targeting, searches those companies' open roles by title, saves the ones they want, and marking a saved job "Applied" counts one toward an applications goal (one more fish for Titi).
+- Why job boards and user-added companies: these boards have no cross-company search, and a fixed company list fails classmates who target different companies (user, 2026-10-21). Rejected: Remotive (search ignored, terms forbid listings behind sign-in), The Muse (no keyword search, noisy categories), Adzuna (needs a key, free tier is "for evaluation", logo on every listing), Himalayas (remote jobs only), a Divvy app (the official Divvy app already does live availability).
+- All three systems from the first version (user, 2026-10-21: "try them all"). In a live check of 33 common companies (2026-10-21), 24 were found: Greenhouse 16 (Anthropic, Airbnb, Jane Street...), Ashby 6 (OpenAI, Perplexity, Notion, Snowflake, Plaid, Webflow), Lever 2 (Spotify, Palantir).
+- Coverage is partial, and the page says so ("Works with companies that hire through Greenhouse, Ashby or Lever"). Not reachable: companies on their own systems or Workday (Google, Uber, McKinsey, DoorDash, Etsy, Two Sigma, Citadel, Hudson River Trading, Grammarly). Applications to those still count: the manual +1 from Assignment 3 stays.
 
 ## Data model (Supabase, user-approved 2026-10-21)
 Four tables. Every table has `user_id text not null default (auth.jwt() ->> 'sub')`: the Clerk user id (`user_...`, not a uuid), filled in by the database from the signed-in person's token, never sent by the browser. Row-level security is on for every table, with select, insert, update and delete policies that all check `user_id = (select auth.jwt() ->> 'sub')`. Ids are `uuid default gen_random_uuid()`.
@@ -23,8 +24,8 @@ Four tables. Every table has `user_id text not null default (auth.jwt() ->> 'sub
 |---|---|---|
 | `goals` | A person's goals (was `AppData.goals`) | verb, title, unit, type (`by-date` / `daily`), target (> 0), deadline (date, null for daily), link, start_date, pauses (jsonb), history (jsonb), position (order; Undo puts a goal back where it was), created_at |
 | `entries` | How many were done, per goal per moment (was `AppData.entries`) | goal_id (references goals, on delete cascade), saved_job_id (references saved_jobs, nullable, on delete set null), date, amount (> 0), at |
-| `companies` | The companies a person follows | source (`greenhouse`), board_token (e.g. `figma`), name (from the board, set on first successful fetch), added_at; unique (user_id, source, board_token) |
-| `saved_jobs` | Jobs a person saved, with a snapshot so they stay readable after the posting is taken down | source, board_token, job_id (Greenhouse `id`, bigint), title, company_name, location, url (`absolute_url`), posted_at (`first_published`), status (`saved` / `applied`), saved_at, applied_at; unique (user_id, source, board_token, job_id) |
+| `companies` | The companies a person follows | source (`greenhouse` / `ashby` / `lever`), board_token (e.g. `figma`), name (Greenhouse's company name, or what the person typed for Ashby and Lever, which send none), added_at; unique (user_id, source, board_token) |
+| `saved_jobs` | Jobs a person saved, with a snapshot so they stay readable after the posting is taken down | source, board_token, job_id (text: Greenhouse ids are numbers, Ashby and Lever ids are uuids), title, company_name, location, url (the posting on the hiring system's site), posted_at, status (`saved` / `applied`), saved_at, applied_at; unique (user_id, source, board_token, job_id) |
 
 - Saved jobs do not reference `companies`: removing a company keeps the jobs saved from it.
 - Marking a job Applied inserts one entry on the goal the person picks (with `saved_job_id` set); un-marking deletes that entry. Deleting a saved job keeps its entry (they did apply).
@@ -33,12 +34,21 @@ Four tables. Every table has `user_id text not null default (auth.jwt() ->> 'sub
 - No import of Assignment 3 browser data: the new site is on a different domain, so that data is not reachable.
 - Suggested companies for an empty list are a constant in the code, shown as one-tap "Add" options. Nothing is written until the person adds one.
 
-## External API: Greenhouse Job Board
-- `GET https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs` (all open jobs, about 480 KB for 675 jobs; never `content=true` on the list, that is about 10 MB) and `GET .../jobs/{id}` for one job. No key. A missing board or job answers 404.
-- Called only on the server, never from the browser: the lists are large, every person following the same company can share one cached copy, and the board token is checked before any request. Cache each board's list for 10 minutes. Send the browser only the fields the page uses.
-- Board tokens come from what the person types or pastes: a bare token or a `job-boards.greenhouse.io/<token>` / `boards.greenhouse.io/<token>` link. Accept only `^[a-z0-9-]{1,64}$` after parsing; anything else is a form error next to the field.
-- Designed states: loading; company not found (404 on add); no open roles match the search; Greenhouse unavailable (non-200 or no answer within 8 seconds), with saved jobs still shown from the database; a saved job no longer posted (404), shown from its snapshot and marked as closed.
-- The job description (`content`, HTML escaped twice) is not shown in the first version: "View on Greenhouse ↗" links to `absolute_url`, which also credits the source. If it is ever shown, decode and sanitize it first.
+## External API: public job boards (Greenhouse, Ashby, Lever)
+Code: `src/lib/jobs/` (`normalize.ts` turns each system's response into one `Job` shape, `boards.ts` fetches a board, finds a company and filters by title). No key for any of them; a missing board answers 404.
+
+| System | Board address | Size of a big board | Fields we keep |
+|---|---|---|---|
+| Greenhouse | `boards-api.greenhouse.io/v1/boards/{token}/jobs` | 0.5 MB (Anthropic) | id, title, company_name, location.name, absolute_url, first_published |
+| Ashby | `api.ashbyhq.com/posting-api/job-board/{token}` | 13.5 MB (OpenAI) | id, title, location + secondaryLocations, jobUrl, publishedAt; only `isListed` jobs |
+| Lever | `api.lever.co/v0/postings/{token}?mode=json` | 6 MB (Palantir) | id, text (title), categories.allLocations, hostedUrl, createdAt (ms) |
+
+- Adding a company by name (user, 2026-10-21: a name, not a link): the person types a company name. It becomes board names to try (`Scale AI` → `scaleai`, then `scale-ai`), each tried on Greenhouse, then Ashby, then Lever. The first board with jobs wins; an empty board counts only if nothing else has jobs (Webflow left an empty Greenhouse board when it moved to Ashby). The page shows "Found Figma, 141 open roles" and adds only after the person taps Add, so a different company with the same name is never added by surprise.
+- Not found → "Couldn't find this company on Greenhouse, Ashby or Lever", with a second field: "Have a job link from them? Paste it". A link from `job-boards.greenhouse.io`, `boards.greenhouse.io`, `jobs.ashbyhq.com` or `jobs.lever.co` asks only that system. Links from other sites are not followed.
+- Board names must match `^[a-z0-9-]{1,64}$` before any request, so typed input can never change the address we call.
+- Called only on the server, never from the browser: the raw boards are megabytes, everyone following the same company shares one cached copy, and input is checked before any request. Cache each board's trimmed job list (at most about 230 KB) for 10 minutes; never cache the raw response. Send the browser only the matching jobs' fields.
+- Designed states: loading; company not found; no open roles match the search; a system unavailable (non-200, not a job list, or no answer within 10 seconds), with saved jobs still shown from the database; a saved job no longer posted (its id is gone from the board), shown from its snapshot and marked as closed.
+- Only https links are kept, and descriptions are not shown in the first version: "View posting ↗" opens the job on the hiring system's own site, which also credits the source. If descriptions are ever shown, sanitize the HTML first.
 
 # Assignment 3 notes (still apply)
 
