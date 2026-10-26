@@ -86,6 +86,18 @@ function checkDeadline(type: GoalType, text: string, today: string): string | un
   if (text <= today) return "Pick a date after today";
 }
 
+/** The link if it is a web address (http or https), else null: goals read from the database or a backup file pass
+ *  through this, so a "javascript:" link can never reach the Open button (security review, 2026-10-26). */
+export function webLink(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "https:" || protocol === "http:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 /** "" is fine (no page to open); otherwise it must be a full http(s) link. */
 export function linkError(text: string): string | undefined {
   if (text.length === 0) return;

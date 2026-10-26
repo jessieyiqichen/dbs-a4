@@ -1,4 +1,5 @@
 import type { AppData, Entry, Goal, GoalPast, Session, Settings } from "./types";
+import { webLink } from "./validate";
 
 /** Goals and entries live in Supabase; only what belongs to this device stays in localStorage (AGENTS.md): settings,
  *  the session in progress and the last visit. A new key, so A3's "nudge:v1" (goals included) is never read as this. */
@@ -105,7 +106,7 @@ export function parseData(text: string): AppData | null {
     goals: goals.map((g) => {
       const { history, ...rest } = g as typeof g & { history?: unknown };
       const kept = Array.isArray(history) ? history.filter(isGoalPast) : [];
-      return { ...rest, verb: isString(g.verb) ? g.verb : "", ...(kept.length > 0 ? { history: kept } : {}) };
+      return { ...rest, link: webLink(rest.link), verb: isString(g.verb) ? g.verb : "", ...(kept.length > 0 ? { history: kept } : {}) };
     }),
     entries,
     settings,

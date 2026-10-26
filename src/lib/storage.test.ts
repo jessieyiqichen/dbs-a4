@@ -68,6 +68,14 @@ describe("storage: older saved data", () => {
   });
 });
 
+describe("storage: a backup file's links", () => {
+  it("keeps only web links, so a crafted backup can't plant a javascript: link", () => {
+    const goal = { id: "g", verb: "Send", title: "Send applications", unit: "applications", type: "daily", target: 3, deadline: null, link: "javascript:alert(1)", startDate: "2026-10-12", pauses: [], createdAt: "" };
+    expect(parseData(JSON.stringify({ ...emptyData(), goals: [goal] }))?.goals[0].link).toBeNull();
+    expect(parseData(JSON.stringify({ ...emptyData(), goals: [{ ...goal, link: "https://www.linkedin.com" }] }))?.goals[0].link).toBe("https://www.linkedin.com");
+  });
+});
+
 describe("storage: a goal's kept history", () => {
   const goal = { id: "g", verb: "Send", title: "Send applications", unit: "applications", type: "daily", target: 3, deadline: null, link: null, startDate: "2026-10-12", pauses: [], createdAt: "" };
   it("keeps valid records of past numbers and drops anything malformed", () => {

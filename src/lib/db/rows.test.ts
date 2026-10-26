@@ -52,6 +52,12 @@ describe("goal rows", () => {
     expect(rowToGoal(null)).toBeNull();
   });
 
+  it("keeps only a web link: anything else, like javascript:, becomes no link (security review 2026-10-26)", () => {
+    expect(rowToGoal({ ...goalToRow(goal, 0), link: "javascript:alert(1)" })?.link).toBeNull();
+    expect(rowToGoal({ ...goalToRow(goal, 0), link: "data:text/html,hi" })?.link).toBeNull();
+    expect(rowToGoal({ ...goalToRow(goal, 0), link: "http://example.com" })?.link).toBe("http://example.com");
+  });
+
   it("drops malformed history records but keeps the goal", () => {
     const row = { ...goalToRow(goal, 0), history: [{ to: "soon" }] };
     expect(rowToGoal(row)).toEqual(goal);

@@ -1,4 +1,5 @@
 import { isGoalPast } from "../storage";
+import { webLink } from "../validate";
 import type { Entry, Goal } from "../types";
 
 /** A goal as the `goals` table stores it. No user_id: the database fills it in from the signed-in person's token. */
@@ -78,7 +79,8 @@ export function rowToGoal(row: unknown): Goal | null {
   if (!valid) return null;
   const kept = Array.isArray(history) ? history.filter(isGoalPast) : [];
   return {
-    id, verb, title, unit, type, target, deadline, link,
+    id, verb, title, unit, type, target, deadline,
+    link: webLink(link),
     startDate: start_date,
     pauses: pauses.map((p) => ({ from: p.from, to: p.to })),
     createdAt,
