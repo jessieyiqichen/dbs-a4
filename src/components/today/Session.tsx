@@ -10,8 +10,10 @@ import { sessionLine } from "@/lib/session";
 import { siteName } from "@/lib/start";
 import type { Goal } from "@/lib/types";
 import { parseCount } from "@/lib/validate";
+import type { SavedJob } from "@/lib/jobs/saved";
 import { CatArt } from "./CatArt";
 import { Coins } from "./Coins";
+import { SessionSaved } from "./SessionSaved";
 
 interface Props {
   goal: Goal;
@@ -21,6 +23,9 @@ interface Props {
   firstTime?: boolean;
   onLog: (amount: number) => void;
   onOpen: () => void;
+  /** An applications goal's saved jobs still to apply to; null for other goals (no list) */
+  saved?: SavedJob[] | null;
+  onApplied?: (job: SavedJob) => void;
 }
 
 /** Any number typed: one labelled field; the typed number stays on an error and focus returns to it. */
@@ -214,6 +219,8 @@ export function Session({
   firstTime = false,
   onLog,
   onOpen,
+  saved = null,
+  onApplied,
 }: Props) {
   const id = useId();
   const [flight, setFlight] = useState<{ key: number; amount: number } | null>(
@@ -265,6 +272,18 @@ export function Session({
           log={log}
           onOpen={onOpen}
         />
+        {saved && onApplied && (
+          <div className="flex flex-col lg:col-span-7 lg:col-start-1 lg:row-start-3 lg:max-w-xl">
+            <SessionSaved
+              jobs={saved}
+              onApplied={(job) => {
+                // Titi hops for it like for any one done
+                setFlight({ key: (flight?.key ?? 0) + 1, amount: 1 });
+                onApplied(job);
+              }}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

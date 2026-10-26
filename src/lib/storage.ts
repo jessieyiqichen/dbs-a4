@@ -1,6 +1,9 @@
-import type { AppData, Entry, Goal, GoalPast } from "./types";
+import type { AppData, Entry, Goal, GoalPast, Session, Settings } from "./types";
+import { webLink } from "./validate";
 
-export const STORAGE_KEY = "nudge:v1";
+/** Goals and entries live in Supabase; only what belongs to this device stays in localStorage (AGENTS.md): settings,
+ *  the session in progress and the last visit. A new key, so A3's "nudge:v1" (goals included) is never read as this. */
+export const DEVICE_KEY = "nudge:device:v1";
 export const DEFAULT_REMINDER_TIMES = ["10:00", "15:00", "20:00"];
 
 interface KeyValueStore {
@@ -8,17 +11,14 @@ interface KeyValueStore {
   setItem(key: string, value: string): void;
 }
 
-export type LoadResult =
-  | { ok: true; data: AppData }
-  | { ok: false; reason: "unavailable" }
-  | { ok: false; reason: "corrupt"; raw: string };
+export type DeviceData = Pick<AppData, "settings" | "lastVisit" | "session">;
 
 export function emptyData(): AppData {
   return {
     version: 1,
     goals: [],
     entries: [],
-    settings: { reminderTimes: DEFAULT_REMINDER_TIMES, notificationsOn: false, nudgesSetUp: false, nudgePromptSnoozedOn: null, weekSummarySeenFor: null, streakTipSeen: false, calendarUntil: null },
+    settings: { reminderTimes: DEFAULT_REMINDER_TIMES, notificationsOn: false, nudgesSetUp: false, nudgePromptSnoozedOn: null, weekSummarySeenFor: null, streakTipSeen: false, calendarUntil: null, applyGoalId: null },
     lastVisit: null,
     session: null,
   };
@@ -29,7 +29,7 @@ const isNullableString = (v: unknown) => v === null || isString(v);
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
 /** A kept record of a goal's past number (see Goal.history); anything malformed is dropped, not trusted. */
-function isGoalPast(v: unknown): v is GoalPast {
+export function isGoalPast(v: unknown): v is GoalPast {
   return (
     isRecord(v) &&
     isString(v.to) && /^\d{4}-\d{2}-\d{2}$/.test(v.to) &&
@@ -60,64 +60,92 @@ function isEntry(v: unknown): v is Entry {
   );
 }
 
-/** Parses and validates saved or imported data. Returns null if the shape is wrong. */
-export function parseData(text: string): AppData | null {
-  let value: unknown;
+function parseSettings(settings: unknown): Settings | null {
+  if (!isRecord(settings) || !Array.isArray(settings.reminderTimes)) return null;
+  if (!settings.reminderTimes.every(isString) || typeof settings.notificationsOn !== "boolean") return null;
+  // Settings added after the first release default to false.
+  return {
+    reminderTimes: settings.reminderTimes,
+    notificationsOn: settings.notificationsOn,
+    nudgesSetUp: settings.nudgesSetUp === true,
+    // A date or nothing; the old forever "Not now" flag is dropped, so the prompt asks again
+    nudgePromptSnoozedOn: isString(settings.nudgePromptSnoozedOn) && /^\d{4}-\d{2}-\d{2}$/.test(settings.nudgePromptSnoozedOn) ? settings.nudgePromptSnoozedOn : null,
+    weekSummarySeenFor: isString(settings.weekSummarySeenFor) && /^\d{4}-\d{2}-\d{2}$/.test(settings.weekSummarySeenFor) ? settings.weekSummarySeenFor : null,
+    streakTipSeen: settings.streakTipSeen === true,
+    calendarUntil: isString(settings.calendarUntil) ? settings.calendarUntil : null,
+    applyGoalId: isString(settings.applyGoalId) ? settings.applyGoalId : null,
+  };
+}
+
+function parseSession(value: unknown): Session | null {
+  return isRecord(value) && isString(value.goalId) && isString(value.startedAt)
+    ? { goalId: value.goalId, startedAt: value.startedAt }
+    : null;
+}
+
+function parseJSON(text: string): unknown {
   try {
-    value = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
     return null;
   }
+}
+
+/** Parses and validates a backup file. Returns null if the shape is wrong. */
+export function parseData(text: string): AppData | null {
+  const value = parseJSON(text);
   if (!isRecord(value) || value.version !== 1) return null;
-  const { goals, entries, settings, lastVisit } = value;
+  const { goals, entries, lastVisit } = value;
   if (!Array.isArray(goals) || !goals.every(isGoal)) return null;
   if (!Array.isArray(entries) || !entries.every(isEntry)) return null;
-  if (!isRecord(settings) || !Array.isArray(settings.reminderTimes)) return null;
-  if (!settings.reminderTimes.every(isString) || typeof settings.notificationsOn !== "boolean") return null;
-  if (!isNullableString(lastVisit)) return null;
-  const session = isRecord(value.session) && isString(value.session.goalId) && isString(value.session.startedAt)
-    ? { goalId: value.session.goalId, startedAt: value.session.startedAt }
-    : null;
+  const settings = parseSettings(value.settings);
+  if (!settings || !isNullableString(lastVisit)) return null;
   return {
     version: 1,
     // Goals saved before verbs existed get an empty verb.
     goals: goals.map((g) => {
       const { history, ...rest } = g as typeof g & { history?: unknown };
       const kept = Array.isArray(history) ? history.filter(isGoalPast) : [];
-      return { ...rest, verb: isString(g.verb) ? g.verb : "", ...(kept.length > 0 ? { history: kept } : {}) };
+      return { ...rest, link: webLink(rest.link), verb: isString(g.verb) ? g.verb : "", ...(kept.length > 0 ? { history: kept } : {}) };
     }),
     entries,
-    // Settings added after the first release default to false.
-    settings: {
-      reminderTimes: settings.reminderTimes,
-      notificationsOn: settings.notificationsOn,
-      nudgesSetUp: settings.nudgesSetUp === true,
-      // A date or nothing; the old forever "Not now" flag is dropped, so the prompt asks again
-      nudgePromptSnoozedOn: isString(settings.nudgePromptSnoozedOn) && /^\d{4}-\d{2}-\d{2}$/.test(settings.nudgePromptSnoozedOn) ? settings.nudgePromptSnoozedOn : null,
-      weekSummarySeenFor: isString(settings.weekSummarySeenFor) && /^\d{4}-\d{2}-\d{2}$/.test(settings.weekSummarySeenFor) ? settings.weekSummarySeenFor : null,
-      streakTipSeen: settings.streakTipSeen === true,
-      calendarUntil: isString(settings.calendarUntil) ? settings.calendarUntil : null,
-    },
+    settings,
     lastVisit,
-    session,
+    session: parseSession(value.session),
   };
 }
 
-export function loadData(store: KeyValueStore | null): LoadResult {
-  if (!store) return { ok: false, reason: "unavailable" };
-  const raw = store.getItem(STORAGE_KEY);
-  if (raw === null) return { ok: true, data: emptyData() };
-  const data = parseData(raw);
-  return data ? { ok: true, data } : { ok: false, reason: "corrupt", raw };
+function parseDevice(text: string): DeviceData | null {
+  const value = parseJSON(text);
+  if (!isRecord(value)) return null;
+  const settings = parseSettings(value.settings);
+  if (!settings || !isNullableString(value.lastVisit)) return null;
+  return { settings, lastVisit: value.lastVisit, session: parseSession(value.session) };
 }
 
-export function saveData(data: AppData, store: KeyValueStore | null): boolean {
+function deviceDefaults(): DeviceData {
+  const { settings, lastVisit, session } = emptyData();
+  return { settings, lastVisit, session };
+}
+
+/** This device's settings; defaults when none are saved, storage is blocked, or what is saved can't be read (settings
+ *  are easy to set again, so there is nothing to rescue, unlike goals). */
+export function loadDevice(store: KeyValueStore | null): DeviceData {
+  const raw = store?.getItem(DEVICE_KEY) ?? null;
+  if (raw === null) return deviceDefaults();
+  const device = parseDevice(raw);
+  if (!device) console.error("Nudge: this device's saved settings couldn't be read, using the defaults");
+  return device ?? deviceDefaults();
+}
+
+export function saveDevice(data: AppData, store: KeyValueStore | null): boolean {
   if (!store) return false;
+  const device: DeviceData = { settings: data.settings, lastVisit: data.lastVisit, session: data.session };
   try {
-    store.setItem(STORAGE_KEY, JSON.stringify(data));
+    store.setItem(DEVICE_KEY, JSON.stringify(device));
     return true;
   } catch (error) {
-    console.error("Nudge: could not save to localStorage", error);
+    console.error("Nudge: could not save settings to localStorage", error);
     return false;
   }
 }

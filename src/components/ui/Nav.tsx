@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store";
 
-/** The core needs only: today's task, and your goals. Reminders are a setting, reached from Goals and the done screen. */
+/** The core needs only: today's task, the jobs you're going after (Assignment 4, user 2026-10-26), and your goals.
+ *  Reminders are a setting, reached from Goals and the done screen. */
 const LINKS = [
   { href: "/", label: "Today", also: ["/session"] },
+  { href: "/jobs", label: "Jobs", also: [] },
   { href: "/goals", label: "Goals", also: ["/reminders"] },
 ];
 
@@ -50,7 +52,7 @@ export function NavLinks({ pathname }: { pathname: string | null }) {
 export function Nav() {
   const pathname = usePathname();
   const store = useStore();
-  const hasGoals = store?.kind === "ready" ? store.data.goals.length > 0 : store?.kind === "corrupt";
+  const hasGoals = store?.kind === "ready" ? store.data.goals.length > 0 : store?.kind === "load-failed";
   if (pathname === "/" && !hasGoals) return null;
   return <NavLinks pathname={pathname} />;
 }

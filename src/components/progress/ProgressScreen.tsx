@@ -102,7 +102,7 @@ export function ProgressScreen({
   const state = useStore();
   if (state === null)
     return <p className="pt-6 text-muted">Loading your progress…</p>;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
 
   const { data } = state;
   const goal = data.goals.find((g) => g.id === id);
@@ -112,7 +112,7 @@ export function ProgressScreen({
         <Header title="Progress" fromToday={fromToday} />
         <div className="mt-8 flex flex-col gap-4">
           <p className="text-lg font-bold text-ink">
-            This goal isn&apos;t saved on this device, it may have been removed
+            This goal isn&apos;t in your account, it may have been removed
           </p>
           <ButtonLink href="/goals" className="self-start">
             See your goals
@@ -140,7 +140,8 @@ export function ProgressScreen({
     return (
       <>
         <PageHeader title={goal.title} back={null} level="h2" />
-        <p className="mt-3 flex items-center gap-3 font-bold text-muted">
+        {/* A div, not a p: Titi's picture is a div, which a paragraph can't hold (React's hydration warning) */}
+        <div className="mt-3 flex items-center gap-3 font-bold text-muted">
           {!byDate && (
             <CatArt
               mood={plan.status === "done" ? "loaf" : "idle"}
@@ -152,7 +153,7 @@ export function ProgressScreen({
             {lastRest &&
               ` · ${formatShortDate(lastRest)} was your free rest day, one a week`}
           </span>
-        </p>
+        </div>
         <div className="mt-6">
           {byDate ? (
             <Road goal={goal} story={roadStory(goal, data.entries, today)} />

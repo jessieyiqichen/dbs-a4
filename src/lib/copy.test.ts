@@ -6,6 +6,9 @@ import { goalSentence } from "./phrases";
 import { dailyPreview, parseCount, parseTime, validateGoal } from "./validate";
 import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
+import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
+import { BACKUP_NOTE, LOAD_FAILED, SAVE_FAILED, SAVED_NOTE } from "./db/copy";
+import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine, SAVED_COPY, savedTab, savedWhen, addedToGoal, allCompaniesOption, companyOption } from "./jobs/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -14,6 +17,10 @@ const goal: Goal = {
 const entry = (date: string, amount: number): Entry => ({ id: date + amount, goalId: "g1", date, amount, at: "" });
 const DAYS = ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"];
 const HOURS = [9, 15, 21];
+
+/** Every string in a nested object of interface lines. */
+const linesIn = (value: unknown): string[] =>
+  typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(linesIn) : [];
 
 /** A full stop is a period followed by a space or the end; decimals like 1.5 are fine. */
 const FULL_STOP = /\.(\s|$)/;
@@ -77,5 +84,58 @@ describe("house style: no full stops", () => {
 
   it("the goal sentence has no full stop", () => {
     expect(goalSentence({ verb: "Send", unit: "connection requests", type: "by-date", target: 500, deadline: "2026-12-01" })).not.toMatch(FULL_STOP);
+  });
+
+  it("the sign-in and sign-up lines, ours and every Clerk line we rewrite, have no full stop", () => {
+    const lines = [AUTH_INTRO, ...linesIn(clerkLocalization)];
+    expect(lines.length).toBeGreaterThan(20);
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+  });
+
+  it("Clerk's error lines, as we rewrite them, don't end in \"!\"", () => {
+    const errors = linesIn(clerkLocalization.unstable__errors);
+    expect(errors.length).toBeGreaterThan(10);
+    for (const line of errors) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the saving and loading lines have no full stop, and the errors no \"!\"", () => {
+    const errorLines = [LOAD_FAILED.title, LOAD_FAILED.next, SAVE_FAILED];
+    for (const line of [...errorLines, SAVED_NOTE, BACKUP_NOTE]) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of errorLines) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the Jobs page lines have no full stop, and its errors no \"!\"", () => {
+    const lines = [
+      ...linesIn(JOBS_COPY), rolesCount(1), rolesCount(139), foundLine("Figma", "greenhouse", 139), foundLine("Webflow", "greenhouse", 0),
+      addLabel("Figma"), addedLine("Figma"), removedLine("Figma"), alreadyLine("Figma"),
+    ];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    const errors = [JOBS_COPY.emptyName, JOBS_COPY.notFound, JOBS_COPY.emptyLink, JOBS_COPY.unavailable, JOBS_COPY.saveFailed, ...linesIn(JOBS_COPY.loadFailed)];
+    for (const line of errors) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the search lines have no full stop, read naturally, and the errors take no \"!\"", () => {
+    expect(companyList(["Anthropic", "Figma", "Notion"])).toBe("Anthropic, Figma and Notion");
+    expect(companyList(["A", "B", "C", "D", "E"])).toBe("your 5 companies");
+    expect(resultsLine(1, "", ["Figma"])).toBe("1 role at Figma, newest first");
+    const names = ["Anthropic", "Figma"];
+    const lines = [...linesIn(SEARCH_COPY), lookingLine(names), resultsLine(12, "product manager", names), resultsLine(212, "", names), moreLine(50, 212), noMatchLine("xyz"), someDownLine(["Palantir"])];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of [SEARCH_COPY.allDown, noMatchLine("xyz"), someDownLine(["Palantir"])]) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the saved-jobs lines have no full stop, and the errors no \"!\"", () => {
+    const lines = [...linesIn(SAVED_COPY), savedTab(3), savedWhen("applied", "today"), savedWhen("saved", null), addedToGoal("Send applications")];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of linesIn(SAVED_COPY.loadFailed)) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the company menu reads naturally, with no full stop", () => {
+    expect(allCompaniesOption(3)).toBe("All my companies (3)");
+    expect(companyOption("Figma", 140)).toBe("Figma · 140 open roles");
+    expect(companyOption("Palantir", null)).toBe("Palantir · didn't answer just now");
+    expect(companyOption("Stripe", undefined)).toBe("Stripe");
+    expect(resultsLine(7, "product manager", ["Figma"])).toBe('7 roles match "product manager" at Figma');
+    for (const line of [allCompaniesOption(1), companyOption("Figma", 1)]) expect(line, line).not.toMatch(FULL_STOP);
   });
 });

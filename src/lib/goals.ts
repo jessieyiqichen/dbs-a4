@@ -49,3 +49,18 @@ export function goalOn(goal: Goal, date: string): Goal {
   const past = (goal.history ?? []).find((h) => date <= h.to);
   return past ? { ...goal, target: past.target, type: past.type, deadline: past.deadline } : goal;
 }
+
+/** A backup ready to go into the database: new ids, so restoring the same file twice (or a file from someone else's
+ *  account) never collides with rows that already exist, and only entries the database accepts (on a goal in the file,
+ *  a whole number above 0), each goal with a real creation time. The session in progress belonged to the old ids, so it is dropped. */
+export function withFreshIds(backup: AppData, newId: () => string = () => crypto.randomUUID()): AppData {
+  const ids = new Map(backup.goals.map((g) => [g.id, newId()]));
+  // Some older goals have an empty createdAt, which a timestamp column refuses
+  const createdAt = (g: Goal) => (Number.isNaN(Date.parse(g.createdAt)) ? new Date().toISOString() : g.createdAt);
+  const goals = backup.goals.map((g) => ({ ...g, id: ids.get(g.id) as string, createdAt: createdAt(g) }));
+  const entries = backup.entries
+    .filter((e) => ids.has(e.goalId) && Number.isInteger(e.amount) && e.amount > 0)
+    // The link to a saved job is left out: that job belongs to the account the backup came from
+    .map((e) => ({ id: newId(), goalId: ids.get(e.goalId) as string, date: e.date, amount: e.amount, at: e.at }));
+  return { ...backup, goals, entries, session: null };
+}

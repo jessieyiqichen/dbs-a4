@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, TextInput } from "@/components/ui/Field";
 import { ScreenHeading } from "@/components/ui/ScreenHeading";
 import { addGoal } from "@/lib/actions";
+import { SAVED_NOTE } from "@/lib/db/copy";
 import { addDays, formatShortDate, toISODate } from "@/lib/dates";
 import { countOf, headline } from "@/lib/phrases";
 import {
@@ -107,7 +108,7 @@ function Hello({ firstVisit, pose }: { firstVisit: boolean; pose: CatMood }) {
 
 /** Today's number in one sentence and the one button, updating with every tap. On a phone it stays pinned to the foot
  *  of the screen, so the number and Start are on the first screen whatever is picked above; on a desktop it is the
- *  right-hand column, with the whole goal and the no-sign-up note under it. */
+ *  right-hand column, with the whole goal and the note on where it is saved under it. */
 function Result({
   r,
   firstVisit,
@@ -190,7 +191,7 @@ function Result({
           {firstVisit ? "Start my first one" : "Start the first one"}
         </Button>
         <p className="text-center text-xs text-muted lg:text-left lg:text-sm">
-          Saved on this device, no sign-up needed
+          {SAVED_NOTE}
         </p>
       </div>
     </div>

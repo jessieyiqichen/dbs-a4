@@ -2,15 +2,70 @@
 
 A goal pusher for students in recruiting season. The tasks that matter but you keep putting off (LinkedIn connections, applications, coffee chats, interview practice) become one number for today, and Titi the cat pushes you to start with just one: every one you finish is a fish treat for her.
 
-Design, Build, Ship · Assignment 3 (Patterns & Flows).
+Design, Build, Ship · **Assignment 4 (Full Stack App)**, extended from Assignment 3. Classmates sign up, each person sees only their own goals, and the Jobs tab pulls open roles from the companies you're aiming for: save one, apply, tap "I applied", and Titi gets a fish.
 
-- **Live:** [dbs-a3.vercel.app](https://dbs-a3.vercel.app)
-- **Flows:** [flows.md](flows.md) (first visit, the main task, coming back, managing goals; every decision and error)
-- **Every state:** [docs/states.png](docs/states.png) (17 phone screens, every error) · [docs/desktop.png](docs/desktop.png) (9 desktop pages)
-- **First-run checks:** [docs/first-run-check.md](docs/first-run-check.md) (two rounds by fresh agents, every finding and what changed)
-- **Design system:** Fish Treat, on Claude (tokens, type, clay and focus rules, every component, Titi's poses): https://claude.ai/artifact/8ZLSKPpy6jRFPHJtqfZXCw
-- **Onboarding research:** [research.md](research.md) (Beeminder, Duolingo, Finch)
-- **Decision log (Chinese):** [log.md](log.md) · **Agent rules:** [AGENTS.md](AGENTS.md)
+- **Live:** added at deploy (step 8) · Assignment 3 version: [dbs-a3.vercel.app](https://dbs-a3.vercel.app)
+- **One request, click to screen:** [docs/request-flow.md](docs/request-flow.md) (Search through the browser, our server, Clerk, Supabase and the job boards; Save straight to Supabase)
+- **Two-user test:** [e2e/two-users.spec.ts](e2e/two-users.spec.ts) · **Tables and row-level security:** [supabase/migrations/](supabase/migrations/)
+- **Reading guide to the agent's changes:** [docs/reading-guide.md](docs/reading-guide.md) (Chinese)
+- **Flows:** [flows.md](flows.md) · **Every state:** [docs/states.png](docs/states.png), [docs/desktop.png](docs/desktop.png) (Assignment 3 screens; sign-in and Jobs came after)
+- **First-run checks:** [docs/first-run-check.md](docs/first-run-check.md) · **Onboarding research:** [research.md](research.md)
+- **Design system:** Fish Treat, on Claude: https://claude.ai/artifact/8ZLSKPpy6jRFPHJtqfZXCw
+- **Decision log (Chinese):** [log.md](log.md) · **Agent rules and data model:** [AGENTS.md](AGENTS.md)
+
+## What Assignment 4 adds
+
+| | What | How |
+|---|---|---|
+| Accounts | Sign up, sign in and sign out; signed out, every page sends you to sign in | Clerk (development keys), [src/proxy.ts](src/proxy.ts) |
+| Your data, on any device | Goals, what you did each day, the companies you follow and the jobs you save | Supabase (Postgres), row-level security on every table |
+| Jobs | Follow companies by name or job link, search their open roles by title, save the ones you want | Public job boards of Greenhouse, Ashby and Lever, called from our server |
+| Back to Titi | An applications goal's page lists your saved jobs with "Apply ↗" and "I applied": one more fish | One entry per application, linked to the saved job |
+
+```mermaid
+flowchart LR
+    B[Browser<br>Next.js pages] -->|sign in| C[Clerk]
+    C -->|session token| B
+    B -->|goals, entries, saved jobs<br>publishable key + token| S[(Supabase<br>Postgres + RLS)]
+    B -->|/api/jobs/...| N[Our server<br>Next.js route handlers]
+    N -->|who is it?| C
+    N -->|your companies<br>with your token| S
+    N -->|open roles<br>cached 10 min| J[Greenhouse · Ashby · Lever]
+```
+
+## Data model
+
+Four tables, each with `user_id` filled in by the database from the signed-in person's Clerk token (`auth.jwt() ->> 'sub'`), never sent by the browser. Full reasoning in [AGENTS.md](AGENTS.md).
+
+| Table | Holds |
+|---|---|
+| `goals` | Each goal: what, how many, by when, breaks, its order |
+| `entries` | How many were done, per goal per moment; an "I applied" entry points at its saved job |
+| `companies` | The companies a person follows (at most 25) |
+| `saved_jobs` | Saved jobs as a snapshot, so they stay readable after the posting is taken down; saved or applied |
+
+**Row-level security:** every table has four rules (read, add, change, delete) that each compare the row's `user_id` with the `sub` in the person's token, so each person reads and writes only their own rows. Only signed-in users get those four permissions; signed-out visitors get none. An entry can only point at its owner's goal.
+
+## Where the job API is called, and why
+
+On **our server** ([src/app/api/jobs/](src/app/api/jobs/)), never in the browser:
+- **Size and caching:** a raw board is up to 13.5 MB (OpenAI on Ashby). The server trims it, keeps one copy for everyone for 10 minutes, and sends the browser a few KB.
+- **Rate limits:** a company is fetched at most once every 10 minutes however many people follow it, and each person has a per-minute limit.
+- **Safety:** the browser never chooses the address we call. The companies come from the person's own rows in Supabase, and every board name must match `a-z 0-9 -`.
+- **Not keys:** none of the three needs one.
+
+**Designed states:** loading ("Looking through Figma…"), nothing found ("No roles match … try a shorter title like "designer"", or "Couldn't find this company on Greenhouse, Ashby or Lever" with a box to paste a job link), down ("The hiring systems didn't answer, try again in a minute" with Try again, while your saved jobs still show), a posting taken down ("No longer posted"), and too many at once.
+
+## Security
+
+- **Keys** live in `.env.local` (git-ignored) and in Vercel's environment variables. A deny rule in [.claude/settings.json](.claude/settings.json) stops the agent from reading or writing `.env` files. Browser code uses only publishable keys; the server talks to Supabase with the publishable key and the person's token too, never the secret key.
+- **Access** is decided by row-level security in Supabase, not only by hiding pages. Supabase's security advisor reports no issues.
+- **Security review** on the branch found and fixed: goal links read back from the database or a backup must be web links; per-person limits on the job routes; at most 25 followed companies (enforced by the database); headers that stop framing and MIME sniffing. Left on purpose, with reasons, in [log.md](log.md): a strict Content-Security-Policy (Clerk's sign-in loads its own scripts), and four advisories in the test tooling only.
+
+## Testing
+
+- **290 unit tests** (vitest): quota, streak, nudges, saving and reading rows, the job boards, matching, rate limits, the copy rules. External calls are always faked.
+- **One end-to-end test** (Playwright, [e2e/two-users.spec.ts](e2e/two-users.spec.ts)): two people in separate browsers sign in, each adds a goal, and neither sees the other's, even from its link. Watched failing first: with the "Read own goals" rule changed to let anyone read, it failed at *"A must not see B's goal: expected 0, received 1"*, because A's page showed B's goal. Restored, it passes. Both migrations are in [supabase/migrations/](supabase/migrations/).
 
 ## The main task
 
@@ -18,12 +73,12 @@ Design, Build, Ship · Assignment 3 (Patterns & Flows).
 
 ```mermaid
 flowchart TD
-    A([First visit, nothing saved]) --> P[Titi asks: What have you been putting off?]
+    A([First visit: sign up]) --> P[Titi asks: What have you been putting off?]
     P --> PK[Pick what, by when, how many<br>today's number shows as you tap]
     PK --> ST[Start my first one]
     ST --> V{Everything filled in?}
     V -->|No| E[The error sits beside the field<br>and says what to type] --> PK
-    V -->|Yes| SV[(Goal saved in the browser)]
+    V -->|Yes| SV[(Goal saved to your account<br>Supabase)]
     SV --> S[Session: Send 5 connection requests today]
     S --> I[I sent one]
     I --> R{Today's number reached?}
@@ -34,7 +89,7 @@ flowchart TD
     CB --> W[Titi: Welcome back, 2 days in a row!]
     W --> T[Today: today's new number]
     T --> S
-    P -.->|closes the tab| X1([Leaves: nothing was saved<br>the same first screen greets them next time])
+    P -.->|closes the tab| X1([Leaves: no goal yet<br>the same first screen greets them next time])
     S -.->|leaves with none done| X2([Leaves: the session is kept<br>Today says Keep going, Titi nudges at their times])
     CB -.->|no reminder set| X3([May not come back<br>so Nudge asks Nudge you tomorrow? after the first log])
     classDef drop fill:#fdecea,stroke:#c0392b,stroke-dasharray:5 3,color:#6b1d14
@@ -45,9 +100,9 @@ flowchart TD
 
 | Flow | What happens | Where |
 |---|---|---|
-| First visit | One screen, nothing to read: Titi asks, the answers come already picked, and today's number with "Start my first one" is on the first screen. No sign-up | `/`; the same screen is "+ Add a goal" later |
+| First visit | Sign up with email or Google (Titi says what Nudge is beside the form). Then one screen, nothing to read: Titi asks, the answers come already picked, and today's number with "Start my first one" is on the first screen | `/sign-up`, `/`; the same screen is "+ Add a goal" later |
 | Main task | Today is Titi's room with one button. The session page logs one at a time ("I sent one") or several at once, each fish fills and Titi hops; reaching today's number ends in a results screen and the streak | `/`, `/session` |
-| Coming back | It remembers your goals, the streak and this week. Titi greets you by what happened since your last visit, and reminders come as a calendar file or browser notifications | `/`, `/reminders` |
+| Coming back | It remembers your goals, the streak and this week, on any device you sign in on. Titi greets you by what happened since your last visit, and reminders come as a calendar file or browser notifications | `/`, `/reminders` |
 
 ## Design decisions
 
@@ -104,25 +159,39 @@ Kept on purpose: reminders live under Goals, and Remove goal acts at once with U
 - **Plan first, one stage at a time.** The main-task sentence and the three flows were planned in plan mode before any code ([plan.md](plan.md)); onboarding research ran as three subagents.
 - **Show before building.** Visual changes were built in a separate copy and shown as phone and desktop screenshots; only approved versions reached the real code, and nothing was pushed without an explicit "push".
 - **A second session as reviewer.** A read-only Claude session checked the app against the course slides and the brief; the user decided what to change.
-- **Checks on every change.** 170 unit tests, a scripted walk of all three flows with mouse and keyboard at 390px and 1440px, axe on every page, and a clean build of the exact commit before each push.
+- **Assignment 4: guard rails.** The Supabase MCP server is scoped to this one project; a deny rule keeps `.env` files out of the agent's reach, so the user created them; the user turned down the agent deleting rows straight from the database. Tests came before code, every screen was checked in the browser at 390px and 1440px with two test users, and row-level security was broken on purpose to watch the test fail.
+- **Checks on every change.** Unit tests (170 in Assignment 3, 290 now), a scripted walk of all three flows with mouse and keyboard at 390px and 1440px, axe on every page, and a clean build of the exact commit before each push.
 - **Easy:** turning a decision into tested code fast, and measuring what a person eyeballs (alignment, where an error lands, contrast).
 - **Hard:** visual judgement. Balance and "does this look tappable" took several rounds of the user looking and saying what felt off.
 
 ## Build and check
 
+Create `.env.local` with your own keys (never committed):
+
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+The database is the migrations in [supabase/migrations/](supabase/migrations/), applied in order; in Supabase, add Clerk under Authentication → Sign In / Providers (third-party auth).
+
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # vitest, 170 tests (quota, streak, nudges, goal history, copy rules, onboarding, storage, message timing, undo)
+npm test           # vitest, 290 unit tests
+npm run test:e2e   # Playwright: two users, each sees only their own goals (needs the dev server's keys and two Clerk test users)
 npm run build
 ```
 
-Data is saved only in this browser (localStorage). No accounts, database or APIs. Next.js 16, Tailwind CSS 4, deployed on Vercel.
+Next.js 16, Tailwind CSS 4, Clerk, Supabase, deployed on Vercel's Hobby plan.
 
 ## Credits
 
 - Titi, her poses, her bowls, the window paintings and the hillside on Titi's road were generated with GPT from the author's photos and prompts, then cut out here (every prompt is in [log.md](log.md)).
 - Fonts: Fredoka and Nunito (Google Fonts).
+- Open roles come from the public job boards of Greenhouse, Ashby and Lever; every role links to its posting on the hiring system's own site.
 - Built by directing Claude Code; the decision log records what was asked, proposed and chosen, in Chinese.
 
 ![Every state of every page, on a phone](docs/states.png)

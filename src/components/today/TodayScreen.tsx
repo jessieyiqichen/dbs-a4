@@ -12,6 +12,10 @@ import {
   updateSettings,
 } from "@/lib/actions";
 import { toISODate } from "@/lib/dates";
+import { isApplicationsGoal } from "@/lib/jobs/applyGoal";
+import { JOBS_COPY } from "@/lib/jobs/copy";
+import { savedKey, type SavedJob } from "@/lib/jobs/saved";
+import { applySaved, unapplySaved, useSavedJobs } from "@/lib/jobs/savedStore";
 import { formatCount } from "@/lib/format";
 import { sortByUrgency, type PlannedGoal } from "@/lib/quota";
 import { startGoal } from "@/lib/start";
@@ -37,8 +41,9 @@ import { TodayHome } from "./TodayHome";
 import { StreakChip } from "./StreakChip";
 
 interface Undoable {
-  entryId: string;
   message: string;
+  /** Absent for a message with nothing to take back ("That didn't save") */
+  undo?: () => void;
 }
 
 const ACTIVE = new Set(["not-started", "started"]);
@@ -93,6 +98,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
   const router = useRouter();
   const state = useStore();
   const [undoable, setUndoable] = useState<Undoable | null>(null);
+  const savedJobs = useSavedJobs();
   const [promptPinned, setPromptPinned] = useState(false);
   // The goal whose number was just reached in this visit: the celebration shows once, then Titi's room again.
   const [justDone, setJustDone] = useState<string | null>(null);
@@ -124,7 +130,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
   }, [view, state, picked, justDone, router]);
 
   if (state === null) return <RoomSkeleton />;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
 
   const { data } = state;
   const now = new Date();
@@ -138,19 +144,32 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
       return;
     }
     setUndoable({
-      entryId: entry.id,
       message: `Added ${formatCount(amount, goal.unit)}`,
+      undo: () => removeEntry(entry.id),
     });
   };
+  // "I applied" on a saved job (user, 2026-10-26): the job is marked applied and counts one on this goal, linked to
+  // it, so Undo takes back both
+  const applied = async (goal: Goal, job: SavedJob, reachesQuota: boolean) => {
+    const entryId = await applySaved(job, goal.id, today);
+    if (entryId === false) return setUndoable({ message: JOBS_COPY.saveFailed });
+    if (reachesQuota) {
+      endSession();
+      setJustDone(goal.id);
+      setUndoable(null);
+      return;
+    }
+    setUndoable({ message: `Added ${formatCount(1, goal.unit)}`, undo: () => void unapplySaved(job) });
+  };
   const undo = () => {
-    if (undoable) removeEntry(undoable.entryId);
+    undoable?.undo?.();
     setUndoable(null);
   };
 
   if (data.goals.length === 0) {
     return (
       <>
-        {!state.persistent && <StorageNotice state={state} />}
+        {state.saveFailed && <StorageNotice state={state} />}
         <FirstVisit />
       </>
     );
@@ -196,7 +215,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
 
   return (
     <>
-      {!state.persistent && <StorageNotice state={state} />}
+      {state.saveFailed && <StorageNotice state={state} />}
 
       {view === "session" ? (
         asking ? (
@@ -207,6 +226,14 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
             firstTime={firstTime}
             onLog={(n) =>
               log(first.goal, n, first.plan.doneToday + n >= first.plan.quota)
+            }
+            saved={
+              isApplicationsGoal(first.goal) && savedJobs.kind === "ready"
+                ? savedJobs.jobs.filter((j) => j.status === "saved" && !savedJobs.closed.has(savedKey(j)))
+                : null
+            }
+            onApplied={(job) =>
+              void applied(first.goal, job, first.plan.doneToday + 1 >= first.plan.quota)
             }
             onOpen={() =>
               first.goal.link &&
@@ -317,7 +344,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
       {/* On the home view the week's shelf holds the foot of a phone screen, so the toast floats above it */}
       <Toast
         message={undoable?.message ?? null}
-        onUndo={undo}
+        onUndo={undoable?.undo ? undo : undefined}
         onClose={closeToast}
         raised={view === "home"}
       />

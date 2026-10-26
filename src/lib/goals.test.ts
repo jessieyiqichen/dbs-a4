@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goalOn, putBack, takeOut, withEdit } from "./goals";
+import { goalOn, putBack, takeOut, withEdit, withFreshIds } from "./goals";
 import { emptyData } from "./storage";
 import type { Entry, Goal } from "./types";
 
@@ -55,5 +55,41 @@ describe("editing a goal keeps its past: each day is judged by the number it had
 
   it("has no past to keep for a goal that started today", () => {
     expect(withEdit({ ...daily, startDate: "2026-10-19" }, values, "2026-10-19").history ?? []).toEqual([]);
+  });
+});
+
+describe("withFreshIds", () => {
+  const goal = { id: "old-goal", verb: "Send", title: "Send cold emails", unit: "cold emails", type: "daily" as const, target: 3, deadline: null, link: null, startDate: "2026-10-12", pauses: [], createdAt: "2026-10-12T10:00:00.000Z" };
+  const backup = {
+    ...emptyData(),
+    goals: [goal],
+    entries: [
+      { id: "old-entry", goalId: "old-goal", date: "2026-10-12", amount: 2, at: "2026-10-12T11:00:00.000Z" },
+      { id: "orphan", goalId: "gone", date: "2026-10-12", amount: 1, at: "2026-10-12T11:00:00.000Z" },
+      { id: "half", goalId: "old-goal", date: "2026-10-12", amount: 0.5, at: "2026-10-12T11:00:00.000Z" },
+    ],
+    session: { goalId: "old-goal", startedAt: "2026-10-12T11:00:00.000Z" },
+  };
+  let n = 0;
+  const restored = withFreshIds(backup, () => `new-${++n}`);
+
+  it("gives every goal and entry a new id and keeps entries on their goal", () => {
+    expect(restored.goals[0]).toEqual({ ...goal, id: "new-1" });
+    expect(restored.entries).toEqual([{ ...backup.entries[0], id: "new-2", goalId: "new-1" }]);
+  });
+
+  it("gives an older goal with no creation time a real one", () => {
+    const [old] = withFreshIds({ ...backup, goals: [{ ...goal, createdAt: "" }] }).goals;
+    expect(Number.isNaN(Date.parse(old.createdAt))).toBe(false);
+  });
+
+  it("drops the link to a saved job, which belongs to the account the backup came from", () => {
+    const linked = { ...backup, entries: [{ ...backup.entries[0], savedJobId: "someone-elses-job" }] };
+    expect(withFreshIds(linked).entries[0]).not.toHaveProperty("savedJobId");
+  });
+
+  it("drops entries the database would refuse (no goal, or not a whole count) and the old session", () => {
+    expect(restored.entries).toHaveLength(1);
+    expect(restored.session).toBeNull();
   });
 });

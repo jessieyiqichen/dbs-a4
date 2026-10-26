@@ -78,32 +78,52 @@ export async function fetchBoard(source: Source, token: string, label: string, f
   }
 }
 
+/** Ashby and Lever send no company name, so a company found from a link is named after its board: "scale-ai" reads
+ *  "Scale Ai" (user, 2026-10-26: "spotify" in lower case looked like a mistake). */
+function nameFromToken(token: string): string {
+  return token.split("-").filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+}
+
 /** Finds a company by name or job link: each board name is tried on Greenhouse, then Ashby, then Lever, and the
  *  first board with jobs wins. An empty board is kept only if no other has jobs, because companies that moved
  *  systems leave empty boards behind (Webflow, Squarespace on Greenhouse). Not found only when every system said
- *  so; unavailable when one of them could not answer. */
-export async function findCompany(input: string, fetcher: Fetcher = fetch): Promise<BoardResult> {
+ *  so; unavailable when one of them could not answer. All the questions go out at once and the answers are read in
+ *  that order, so a company no system has takes about one round trip instead of six in a row (user, 2026-10-26: a
+ *  name that wasn't there felt slow). */
+export async function findCompany(
+  input: string,
+  fetcher: Fetcher = fetch,
+  // The server passes its cached version (service.ts), so a company just found is already cached for the first search
+  getBoard: (source: Source, token: string, label: string) => Promise<BoardResult> = (s, t, l) => fetchBoard(s, t, l, fetcher),
+): Promise<BoardResult> {
   const tries = candidates(input);
-  const label = looksLikeLink(input.trim()) ? (tries[0]?.token ?? "") : input.trim();
-  let empty: BoardResult | null = null;
-  let unavailable = false;
-  for (const { source, token } of tries) {
-    for (const each of source ? [source] : SOURCES) {
-      const result = await fetchBoard(each, token, label, fetcher);
-      if (result.kind === "found" && result.jobs.length > 0) return result;
-      if (result.kind === "found") empty ??= result;
-      if (result.kind === "unavailable") unavailable = true;
-    }
-  }
+  const label = looksLikeLink(input.trim()) ? nameFromToken(tries[0]?.token ?? "") : input.trim();
+  const asks = tries.flatMap(({ source, token }) => (source ? [source] : SOURCES).map((each) => ({ source: each, token })));
+  const results = await Promise.all(asks.map(({ source, token }) => getBoard(source, token, label)));
+  const withJobs = results.find((r) => r.kind === "found" && r.jobs.length > 0);
+  if (withJobs) return withJobs;
+  const empty = results.find((r) => r.kind === "found");
   if (empty) return empty;
-  return unavailable ? { kind: "unavailable" } : { kind: "not-found" };
+  return results.some((r) => r.kind === "unavailable") ? { kind: "unavailable" } : { kind: "not-found" };
+}
+
+/** Endings a searched word may add: "engineer" finds "Engineering" and "Engineers", "manager" finds "Managers". */
+const ENDINGS = "(?:s|es|ing|ed|er|ers)?";
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** One pattern per searched word: the whole word from its start, plus a common ending, so "product" no longer finds
+ *  "Production" (user, 2026-10-26). Commas and full stops around a word are dropped; symbols inside one ("c++") are
+ *  matched as typed. */
+function wordPatterns(query: string): RegExp[] {
+  return query
+    .split(/\s+/)
+    .map((word) => word.replace(/^[,.;:!?"'()]+|[,.;:!?"'()]+$/g, ""))
+    .filter(Boolean)
+    .map((word) => new RegExp(`(?<![a-z0-9])${escape(word)}${ENDINGS}(?![a-z0-9])`, "i"));
 }
 
 /** Jobs whose title holds every word of the search, ignoring case. An empty search keeps them all. */
 export function matchJobs(jobs: Job[], query: string): Job[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  return jobs.filter((job) => {
-    const title = job.title.toLowerCase();
-    return words.every((word) => title.includes(word));
-  });
+  const patterns = wordPatterns(query);
+  return jobs.filter((job) => patterns.every((pattern) => pattern.test(job.title)));
 }

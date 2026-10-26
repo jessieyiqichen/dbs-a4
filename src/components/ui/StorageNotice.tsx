@@ -1,29 +1,26 @@
 "use client";
 
-import { downloadText } from "@/lib/download";
-import { resetData, type StoreState } from "@/lib/store";
+import { LOAD_FAILED, SAVE_FAILED } from "@/lib/db/copy";
+import { reloadData, type StoreState } from "@/lib/store";
 import { Button } from "./Button";
 
-const downloadRaw = (raw: string) => downloadText(raw, "nudge-unreadable-data.json", "application/json");
-
+/** When goals didn't load, or the last change didn't save. Either way the message says what to do next. */
 export function StorageNotice({ state }: { state: StoreState }) {
-  if (state.kind === "corrupt") {
+  if (state.kind === "load-failed") {
     return (
       <section role="alert" className="mt-6 flex flex-col gap-4 rounded-lg border-2 border-danger p-4">
-        <h1 className="text-xl font-bold text-ink">Your saved goals couldn&apos;t be read</h1>
-        <p className="text-ink">Download a copy to keep it, then start fresh</p>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="secondary" onClick={() => downloadRaw(state.raw)}>Download a copy</Button>
-          <Button variant="danger" onClick={() => { if (window.confirm("Delete the unreadable data and start fresh?")) resetData(); }}>
-            Start fresh
-          </Button>
+        <h1 className="text-xl font-bold text-ink">{LOAD_FAILED.title}</h1>
+        <p className="text-ink">{LOAD_FAILED.next}</p>
+        <div>
+          <Button variant="secondary" onClick={reloadData}>Try again</Button>
         </div>
       </section>
     );
   }
   return (
-    <p role="status" className="mt-2 rounded-2xl bg-surface px-4 py-3 text-sm font-bold text-ink shadow-[0_2px_12px_rgba(61,59,51,.10)]">
-      This browser can&apos;t save (private mode or blocked storage), so your goals will be gone when you close the tab
+    <p role="alert" className="mt-2 rounded-2xl bg-surface px-4 py-3 text-sm font-bold text-ink shadow-[0_2px_12px_rgba(61,59,51,.10)]">
+      {SAVE_FAILED}
     </p>
   );
 }
+

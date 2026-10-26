@@ -1,13 +1,13 @@
 "use client";
 
 import { updateData } from "./store";
-import { putBack, takeOut, withEdit, type Removed } from "./goals";
+import { putBack, takeOut, withEdit, withFreshIds, type Removed } from "./goals";
 import { withPause, withoutPause } from "./progress";
 import type { AppData, Entry, Goal, Settings } from "./types";
 import type { GoalValues } from "./validate";
 
-export function addEntry(goalId: string, amount: number, date: string): Entry {
-  const entry: Entry = { id: crypto.randomUUID(), goalId, date, amount, at: new Date().toISOString() };
+export function addEntry(goalId: string, amount: number, date: string, savedJobId?: string): Entry {
+  const entry: Entry = { id: crypto.randomUUID(), goalId, date, amount, at: new Date().toISOString(), ...(savedJobId ? { savedJobId } : {}) };
   // The session stays open while you work; Today ends it once the number is reached (or on Stop).
   updateData((data) => ({ ...data, entries: [...data.entries, entry] }));
   return entry;
@@ -15,6 +15,11 @@ export function addEntry(goalId: string, amount: number, date: string): Entry {
 
 export function removeEntry(entryId: string): void {
   updateData((data) => ({ ...data, entries: data.entries.filter((e) => e.id !== entryId) }));
+}
+
+/** Taking back a saved job's Applied removes the +1 it added (AGENTS.md). */
+export function removeEntriesForJob(savedJobId: string): void {
+  updateData((data) => ({ ...data, entries: data.entries.filter((e) => e.savedJobId !== savedJobId) }));
 }
 
 export function markVisited(today: string): void {
@@ -62,9 +67,9 @@ export function restoreGoal(removed: Removed): void {
   updateData((data) => putBack(data, removed));
 }
 
-/** Replaces everything on this device with a validated backup. */
+/** Replaces all of this person's goals with a validated backup, under new ids (see withFreshIds). */
 export function restoreData(backup: AppData): void {
-  updateData(() => backup);
+  updateData(() => withFreshIds(backup));
 }
 
 /** Tapping Start: remember which goal, so coming back asks how many. */

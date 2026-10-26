@@ -42,6 +42,8 @@ export interface Entry {
   date: string;
   amount: number;
   at: string;
+  /** Set on the entry a saved job's "Applied" added, so taking it back removes that one (Assignment 4). */
+  savedJobId?: string;
 }
 
 export interface Settings {
@@ -58,6 +60,9 @@ export interface Settings {
   streakTipSeen: boolean;
   /** The last day the downloaded calendar file covers, so Today can say when to grab a new one. */
   calendarUntil: string | null;
+  /** The goal a job marked Applied on the Jobs page counts toward, once picked (user, 2026-10-26: ask once, then
+   *  remember). Per device, like the other settings. */
+  applyGoalId: string | null;
 }
 
 /** Set when someone taps Start, until they say how many they did. */

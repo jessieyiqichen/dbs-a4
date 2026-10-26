@@ -13,14 +13,14 @@ export function RemindersScreen() {
 
   if (state === null)
     return <p className="pt-6 text-muted">Loading your reminders…</p>;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
   const { settings } = state.data;
 
   return (
     // On a desktop: when to nudge on the left, the two ways it reaches you on the right (user, 2026-10-19: one long
     // column beside a small Titi was unbalanced)
     <div className="mt-8 flex flex-col gap-8">
-      {!state.persistent && <StorageNotice state={state} />}
+      {state.saveFailed && <StorageNotice state={state} />}
       <div className="flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-8">
         <section
           aria-labelledby="times-title"

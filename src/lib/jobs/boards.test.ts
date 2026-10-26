@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { candidates, fetchBoard, findCompany, matchJobs } from "./boards";
-import type { Job } from "./types";
+import type { BoardResult, Job, Source } from "./types";
 
 describe("candidates", () => {
   it("turns a company name into board names to try", () => {
@@ -75,14 +75,24 @@ describe("fetchBoard", () => {
 });
 
 describe("findCompany", () => {
-  it("tries Greenhouse, then Ashby, then Lever, and stops at the first board found", async () => {
-    const fetcher = vi.fn((url: string) =>
-      url.includes("ashbyhq")
-        ? reply(200, { jobs: [{ id: "n", title: "PM", jobUrl: "https://jobs.ashbyhq.com/notion/n" }] })
-        : reply(404, {}),
-    );
-    expect(await findCompany("Notion", fetcher)).toMatchObject({ kind: "found", source: "ashby", board: "notion" });
-    expect(fetcher).toHaveBeenCalledTimes(2);
+  it("asks every system at once, and still prefers Greenhouse, then Ashby, then Lever", async () => {
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Lever answers first, but Greenhouse has the company too and comes first in the order
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.includes("greenhouse")) return wait(30).then(() => reply(200, greenhouseBody));
+      if (url.includes("lever")) return reply(200, [{ id: "l", text: "PM", hostedUrl: "https://jobs.lever.co/figma/l", categories: {} }]);
+      return reply(404, {});
+    });
+    expect(await findCompany("Figma", fetcher)).toMatchObject({ kind: "found", source: "greenhouse" });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("answers about as fast as the slowest board, not the sum of all of them (user, 2026-10-26)", async () => {
+    const slow404 = () => new Promise<Response>((resolve) => setTimeout(() => resolve(new Response("{}", { status: 404 })), 50));
+    const started = Date.now();
+    // Two board names, three systems: six questions
+    expect(await findCompany("Hudson River", slow404)).toEqual({ kind: "not-found" });
+    expect(Date.now() - started).toBeLessThan(200);
   });
 
   it("passes over an empty board for one that has jobs, and keeps the empty one if that is all there is", async () => {
@@ -97,6 +107,15 @@ describe("findCompany", () => {
     const fetcher = vi.fn(() => reply(200, greenhouseBody));
     await findCompany("https://job-boards.greenhouse.io/figma", fetcher);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("names a company found from a link by its board name, written like a name", async () => {
+    const getBoard = vi.fn(async (source: Source, token: string, label: string): Promise<BoardResult> =>
+      ({ kind: "found", source, board: token, company: label, jobs: [] }));
+    await findCompany("https://jobs.lever.co/spotify/3b5f", fetch, getBoard);
+    expect(getBoard).toHaveBeenCalledWith("lever", "spotify", "Spotify");
+    await findCompany("jobs.ashbyhq.com/scale-ai", fetch, getBoard);
+    expect(getBoard).toHaveBeenLastCalledWith("ashby", "scale-ai", "Scale Ai");
   });
 
   it("is not found when no source has it, and unavailable when a source could not answer", async () => {
@@ -136,5 +155,26 @@ describe("matchJobs", () => {
 
   it("keeps everything for an empty search", () => {
     expect(matchJobs(jobs, " ")).toHaveLength(3);
+  });
+
+  it("matches whole words, which may add a common ending (user, 2026-10-26)", () => {
+    const titles = [
+      "Manager, Software Engineering - Production Engineering",
+      "Senior Product Managers",
+      "Engineering Manager",
+      "Software Engineer",
+      "Productivity Lead",
+      "Staff Engineer (C++)",
+    ];
+    const titlesFor = (query: string) => matchJobs(titles.map(job), query).map((j) => j.title);
+    // "product" no longer finds "Production" or "Productivity"
+    expect(titlesFor("product manager")).toEqual(["Senior Product Managers"]);
+    // "engineer" still finds "Engineering" and "Engineers"
+    expect(titlesFor("engineer")).toEqual([
+      "Manager, Software Engineering - Production Engineering", "Engineering Manager", "Software Engineer", "Staff Engineer (C++)",
+    ]);
+    // Searching with punctuation or symbols never breaks the search
+    expect(titlesFor("c++")).toEqual(["Staff Engineer (C++)"]);
+    expect(titlesFor("manager,")).toHaveLength(3);
   });
 });
