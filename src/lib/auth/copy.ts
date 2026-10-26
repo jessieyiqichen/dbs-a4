@@ -41,6 +41,8 @@ export const clerkLocalization = {
     form_password_pwned__sign_in: "This password showed up in a data leak, reset it to sign in",
     form_password_compromised__sign_in: "To keep your account safe, sign in another way, then set a new password",
     form_password_untrusted__sign_in: "To keep your account safe, sign in another way, then set a new password",
+    // Not in Clerk's typed list, but its errors are looked up by code; seen 2026-10-26 after a code screen sat open
+    verification_expired: "That code expired, tap Resend for a new one",
     too_many_unverified_identifications: "Too many codes are waiting, try again in a few minutes",
     session_exists: "You're already signed in",
     not_allowed_access: "This email can't sign up here, try another one",
