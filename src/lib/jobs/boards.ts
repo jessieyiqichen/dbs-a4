@@ -82,14 +82,19 @@ export async function fetchBoard(source: Source, token: string, label: string, f
  *  first board with jobs wins. An empty board is kept only if no other has jobs, because companies that moved
  *  systems leave empty boards behind (Webflow, Squarespace on Greenhouse). Not found only when every system said
  *  so; unavailable when one of them could not answer. */
-export async function findCompany(input: string, fetcher: Fetcher = fetch): Promise<BoardResult> {
+export async function findCompany(
+  input: string,
+  fetcher: Fetcher = fetch,
+  // The server passes its cached version (service.ts), so a company just found is already cached for the first search
+  getBoard: (source: Source, token: string, label: string) => Promise<BoardResult> = (s, t, l) => fetchBoard(s, t, l, fetcher),
+): Promise<BoardResult> {
   const tries = candidates(input);
   const label = looksLikeLink(input.trim()) ? (tries[0]?.token ?? "") : input.trim();
   let empty: BoardResult | null = null;
   let unavailable = false;
   for (const { source, token } of tries) {
     for (const each of source ? [source] : SOURCES) {
-      const result = await fetchBoard(each, token, label, fetcher);
+      const result = await getBoard(each, token, label);
       if (result.kind === "found" && result.jobs.length > 0) return result;
       if (result.kind === "found") empty ??= result;
       if (result.kind === "unavailable") unavailable = true;
