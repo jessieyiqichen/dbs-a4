@@ -17,6 +17,10 @@ const entry = (date: string, amount: number): Entry => ({ id: date + amount, goa
 const DAYS = ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"];
 const HOURS = [9, 15, 21];
 
+/** Every string in a nested object of interface lines. */
+const linesIn = (value: unknown): string[] =>
+  typeof value === "string" ? [value] : value && typeof value === "object" ? Object.values(value).flatMap(linesIn) : [];
+
 /** A full stop is a period followed by a space or the end; decimals like 1.5 are fine. */
 const FULL_STOP = /\.(\s|$)/;
 
@@ -81,9 +85,16 @@ describe("house style: no full stops", () => {
     expect(goalSentence({ verb: "Send", unit: "connection requests", type: "by-date", target: 500, deadline: "2026-12-01" })).not.toMatch(FULL_STOP);
   });
 
-  it("the sign-in and sign-up lines, ours and Clerk's rewritten ones, have no full stop", () => {
-    const lines = [AUTH_INTRO, clerkLocalization.signIn.start.subtitle, clerkLocalization.signUp.start.subtitle];
+  it("the sign-in and sign-up lines, ours and every Clerk line we rewrite, have no full stop", () => {
+    const lines = [AUTH_INTRO, ...linesIn(clerkLocalization)];
+    expect(lines.length).toBeGreaterThan(20);
     for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+  });
+
+  it("Clerk's error lines, as we rewrite them, don't end in \"!\"", () => {
+    const errors = linesIn(clerkLocalization.unstable__errors);
+    expect(errors.length).toBeGreaterThan(10);
+    for (const line of errors) expect(line, line).not.toMatch(/!$/);
   });
 
   it("the saving and loading lines have no full stop, and the errors no \"!\"", () => {
