@@ -17,7 +17,12 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
-  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    trace: "retain-on-failure",
+    // SLOWMO=700 npm run test:e2e -- --headed: a pause before each step, to watch the test run (0 by default)
+    launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
+  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `npm run dev -- -p ${PORT}`,
