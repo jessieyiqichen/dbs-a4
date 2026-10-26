@@ -22,9 +22,11 @@ export const clerkAppearance = {
     borderRadius: "1rem",
   },
   // Read-only things have no box (AGENTS.md), so Clerk's card, its shadow and its grey footer band are taken away.
+  // Clerk's box hides what sticks out, and the fields reach its edges, so it would cut the sides off the focus ring and
+  // the clay buttons' shadows (user, 2026-10-26)
   elements: {
     rootBox: "w-full",
-    cardBox: "w-full border-0 bg-transparent shadow-none",
+    cardBox: "w-full overflow-visible border-0 bg-transparent shadow-none",
     card: "border-0 bg-transparent px-0 py-2 shadow-none",
     footer: "bg-none bg-transparent",
     headerTitle: "font-display text-2xl font-bold text-ink lg:text-3xl",
