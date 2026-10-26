@@ -67,3 +67,26 @@ export function resultsLine(total: number, query: string, names: string[]): stri
 export const moreLine = (shown: number, total: number) => `Showing the newest ${shown} of ${total}, add a word to narrow it`;
 export const noMatchLine = (query: string) => `No roles match "${query}" at your companies right now, try a shorter title like "designer"`;
 export const someDownLine = (names: string[]) => `${companyList(names)} didn't answer, showing the rest`;
+
+/** 6d: the saved list on Jobs, and saved jobs on the applications goal's page (agreed 2026-10-26). */
+export const SAVED_COPY = {
+  tabSearch: "Search",
+  empty: "Save a role from the search and it'll wait here for you",
+  iApplied: "I applied",
+  applied: "Applied ✓",
+  apply: "Apply ↗",
+  closed: "No longer posted",
+  remove: "Remove",
+  countToward: "Count this toward",
+  countIt: "Count it",
+  notNow: "Not now",
+  noGoal: "Applied! Set an applications goal to count these for Titi",
+  backToSaved: "Back to saved, and its fish went back too",
+  loadFailed: { title: "Your saved jobs didn't load", next: "Check your connection, then try again" },
+  sessionHeading: "Your saved jobs",
+  findMore: "Need roles to apply to? Find some on Jobs",
+};
+
+export const savedTab = (count: number) => `Saved ${count}`;
+export const savedWhen = (status: "saved" | "applied", ago: string | null) => (ago ? `${status} ${ago}` : status);
+export const addedToGoal = (goalTitle: string) => `Added 1 to "${goalTitle}"! One more fish for Titi`;

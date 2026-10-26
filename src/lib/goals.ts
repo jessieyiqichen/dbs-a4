@@ -60,6 +60,7 @@ export function withFreshIds(backup: AppData, newId: () => string = () => crypto
   const goals = backup.goals.map((g) => ({ ...g, id: ids.get(g.id) as string, createdAt: createdAt(g) }));
   const entries = backup.entries
     .filter((e) => ids.has(e.goalId) && Number.isInteger(e.amount) && e.amount > 0)
-    .map((e) => ({ ...e, id: newId(), goalId: ids.get(e.goalId) as string }));
+    // The link to a saved job is left out: that job belongs to the account the backup came from
+    .map((e) => ({ id: newId(), goalId: ids.get(e.goalId) as string, date: e.date, amount: e.amount, at: e.at }));
   return { ...backup, goals, entries, session: null };
 }

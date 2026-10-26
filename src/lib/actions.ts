@@ -6,8 +6,8 @@ import { withPause, withoutPause } from "./progress";
 import type { AppData, Entry, Goal, Settings } from "./types";
 import type { GoalValues } from "./validate";
 
-export function addEntry(goalId: string, amount: number, date: string): Entry {
-  const entry: Entry = { id: crypto.randomUUID(), goalId, date, amount, at: new Date().toISOString() };
+export function addEntry(goalId: string, amount: number, date: string, savedJobId?: string): Entry {
+  const entry: Entry = { id: crypto.randomUUID(), goalId, date, amount, at: new Date().toISOString(), ...(savedJobId ? { savedJobId } : {}) };
   // The session stays open while you work; Today ends it once the number is reached (or on Stop).
   updateData((data) => ({ ...data, entries: [...data.entries, entry] }));
   return entry;
@@ -15,6 +15,11 @@ export function addEntry(goalId: string, amount: number, date: string): Entry {
 
 export function removeEntry(entryId: string): void {
   updateData((data) => ({ ...data, entries: data.entries.filter((e) => e.id !== entryId) }));
+}
+
+/** Taking back a saved job's Applied removes the +1 it added (AGENTS.md). */
+export function removeEntriesForJob(savedJobId: string): void {
+  updateData((data) => ({ ...data, entries: data.entries.filter((e) => e.savedJobId !== savedJobId) }));
 }
 
 export function markVisited(today: string): void {

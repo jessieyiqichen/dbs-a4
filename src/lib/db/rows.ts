@@ -21,13 +21,14 @@ export interface GoalRow {
 export interface EntryRow {
   id: string;
   goal_id: string;
+  saved_job_id: string | null;
   date: string;
   amount: number;
   at: string;
 }
 
 export const GOAL_COLUMNS = "id, verb, title, unit, type, target, deadline, link, start_date, pauses, history, position, created_at";
-export const ENTRY_COLUMNS = "id, goal_id, date, amount, at";
+export const ENTRY_COLUMNS = "id, goal_id, saved_job_id, date, amount, at";
 
 export function goalToRow(goal: Goal, position: number): GoalRow {
   return {
@@ -48,7 +49,7 @@ export function goalToRow(goal: Goal, position: number): GoalRow {
 }
 
 export function entryToRow(entry: Entry): EntryRow {
-  return { id: entry.id, goal_id: entry.goalId, date: entry.date, amount: entry.amount, at: entry.at };
+  return { id: entry.id, goal_id: entry.goalId, saved_job_id: entry.savedJobId ?? null, date: entry.date, amount: entry.amount, at: entry.at };
 }
 
 const isString = (v: unknown): v is string => typeof v === "string";
@@ -90,5 +91,6 @@ export function rowToEntry(row: unknown): Entry | null {
   const { id, goal_id, date, amount } = row;
   const at = toISO(row.at);
   if (!isString(id) || !isString(goal_id) || !isDay(date) || !isCount(amount) || at === null) return null;
-  return { id, goalId: goal_id, date, amount, at };
+  const savedJobId = isString(row.saved_job_id) ? row.saved_job_id : null;
+  return { id, goalId: goal_id, date, amount, at, ...(savedJobId ? { savedJobId } : {}) };
 }

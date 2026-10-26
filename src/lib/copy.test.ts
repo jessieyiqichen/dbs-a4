@@ -8,7 +8,7 @@ import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
 import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
 import { BACKUP_NOTE, LOAD_FAILED, SAVE_FAILED, SAVED_NOTE } from "./db/copy";
-import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine } from "./jobs/copy";
+import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine, SAVED_COPY, savedTab, savedWhen, addedToGoal } from "./jobs/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -122,5 +122,11 @@ describe("house style: no full stops", () => {
     const lines = [...linesIn(SEARCH_COPY), lookingLine(names), resultsLine(12, "product manager", names), resultsLine(212, "", names), moreLine(50, 212), noMatchLine("xyz"), someDownLine(["Palantir"])];
     for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
     for (const line of [SEARCH_COPY.allDown, noMatchLine("xyz"), someDownLine(["Palantir"])]) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the saved-jobs lines have no full stop, and the errors no \"!\"", () => {
+    const lines = [...linesIn(SAVED_COPY), savedTab(3), savedWhen("applied", "today"), savedWhen("saved", null), addedToGoal("Send applications")];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of linesIn(SAVED_COPY.loadFailed)) expect(line, line).not.toMatch(/!$/);
   });
 });

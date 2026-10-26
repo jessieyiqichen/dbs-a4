@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cachedBoards, readName, readQuery, rowToCompany, searchCompanies, summarize, MAX_RESULTS } from "./service";
+import { cachedBoards, closedJobs, readName, readQuery, rowToCompany, searchCompanies, summarize, MAX_RESULTS } from "./service";
 import type { BoardResult, Job, Source } from "./types";
 
 const job = (id: string, title: string, postedAt: string | null = null): Job => ({
@@ -104,5 +104,30 @@ describe("searchCompanies", () => {
 
   it("says how many roles each company has open, or null when its system didn't answer", async () => {
     expect((await searchCompanies(companies, "", getBoard)).openRoles).toEqual({ "greenhouse:figma": 2, "ashby:notion": 1, "lever:palantir": null });
+  });
+});
+
+describe("closedJobs", () => {
+  const saved = [
+    { source: "greenhouse" as const, board: "figma", jobId: "1" },
+    { source: "greenhouse" as const, board: "figma", jobId: "gone" },
+    { source: "lever" as const, board: "palantir", jobId: "p1" },
+    { source: "ashby" as const, board: "left-ashby", jobId: "a1" },
+  ];
+  const boards: Record<string, BoardResult> = {
+    figma: found([job("1", "Designer")]),
+    palantir: { kind: "unavailable" },
+    "left-ashby": { kind: "not-found" },
+  };
+
+  it("finds saved jobs that are no longer on their board, asking each board once", async () => {
+    const getBoard = vi.fn(async (_: Source, token: string) => boards[token]);
+    const result = await closedJobs(saved, getBoard);
+    expect(result.closed).toEqual(["greenhouse:figma:gone", "ashby:left-ashby:a1"]);
+    expect(getBoard).toHaveBeenCalledTimes(3);
+  });
+
+  it("can't tell for a board that didn't answer, so it doesn't call those closed", async () => {
+    expect((await closedJobs(saved, async (_: Source, token: string) => boards[token])).unchecked).toEqual(["lever:palantir:p1"]);
   });
 });

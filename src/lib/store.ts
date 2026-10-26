@@ -121,6 +121,11 @@ export function currentDb(): Db | null {
   return db;
 }
 
+/** Whose data is loaded, so stores of other rows (saved jobs) reload when someone else signs in. */
+export function currentUserId(): string | null {
+  return userId;
+}
+
 /** "Try again" after goals didn't load. */
 export function reloadData(): void {
   if (!db) return;

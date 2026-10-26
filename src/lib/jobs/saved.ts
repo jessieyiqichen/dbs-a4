@@ -79,20 +79,88 @@ export function snapshot(job: Job) {
   };
 }
 
-/** Which jobs this person has saved, to show "Saved" on them in the results. */
-export async function loadSavedKeys(db: Db): Promise<Set<string>> {
-  const { data, error } = await db.from("saved_jobs").select("source, board_token, job_id");
-  if (error) throw new Error(`Nudge: could not load saved jobs: ${error.message}`, { cause: error });
-  const keys = ((data ?? []) as Record<string, unknown>[])
-    .filter((r) => SOURCES.includes(r.source as Source) && isString(r.board_token) && isString(r.job_id))
-    .map((r) => jobKey({ source: r.source as Source, board: r.board_token as string, id: r.job_id as string }));
-  return new Set(keys);
+export interface SavedJob {
+  id: string;
+  source: Source;
+  board: string;
+  jobId: string;
+  title: string;
+  company: string;
+  location: string;
+  url: string;
+  postedAt: string | null;
+  status: "saved" | "applied";
+  savedAt: string;
+  appliedAt: string | null;
 }
 
-/** Saves a job. Saving one that is already saved (another tab, a double tap) still counts as saved. */
-export async function saveJob(db: Db, job: Job): Promise<"saved" | "failed"> {
-  const { error } = await db.from("saved_jobs").insert(snapshot(job));
-  if (!error || error.code === ALREADY_EXISTS) return "saved";
+const SAVED_COLUMNS = "id, source, board_token, job_id, title, company_name, location, url, posted_at, status, saved_at, applied_at";
+
+/** The same key as the job it came from, so the search can show "Saved" on it. */
+export const savedKey = (saved: SavedJob) => `${saved.source}:${saved.board}:${saved.jobId}`;
+
+function toISO(v: unknown): string | null {
+  const time = isString(v) ? Date.parse(v) : NaN;
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+}
+
+export function rowToSaved(row: unknown): SavedJob | null {
+  if (typeof row !== "object" || row === null) return null;
+  const r = row as Record<string, unknown>;
+  const savedAt = toISO(r.saved_at);
+  const valid = isString(r.id) && SOURCES.includes(r.source as Source) && isString(r.board_token) && isString(r.job_id) &&
+    isString(r.title) && isString(r.company_name) && isString(r.url) && r.url.startsWith("https://") &&
+    (r.status === "saved" || r.status === "applied") && savedAt !== null;
+  if (!valid) return null;
+  return {
+    id: r.id as string, source: r.source as Source, board: r.board_token as string, jobId: r.job_id as string,
+    title: r.title as string, company: r.company_name as string, location: isString(r.location) ? r.location : "",
+    url: r.url as string, postedAt: toISO(r.posted_at), status: r.status as SavedJob["status"], savedAt, appliedAt: toISO(r.applied_at),
+  };
+}
+
+/** This person's saved jobs, newest first. */
+export async function loadSaved(db: Db): Promise<SavedJob[]> {
+  const { data, error } = await db.from("saved_jobs").select(SAVED_COLUMNS).order("saved_at", { ascending: false });
+  if (error) throw new Error(`Nudge: could not load saved jobs: ${error.message}`, { cause: error });
+  const rows = (data ?? []) as unknown[];
+  const kept = rows.map(rowToSaved).filter((s): s is SavedJob => s !== null);
+  if (kept.length < rows.length) console.error(`Nudge: skipped ${rows.length - kept.length} unreadable saved jobs`);
+  return kept;
+}
+
+export type SaveResult = { kind: "saved"; saved: SavedJob } | { kind: "already" } | { kind: "failed" };
+
+/** Saves a job and hands back the saved row. Already saved (another tab, a double tap) is told apart from a failure. */
+export async function saveJob(db: Db, job: Job): Promise<SaveResult> {
+  const { data, error } = await db.from("saved_jobs").insert(snapshot(job)).select(SAVED_COLUMNS).single();
+  if (error?.code === ALREADY_EXISTS) return { kind: "already" };
+  const saved = error ? null : rowToSaved(data);
+  if (saved) return { kind: "saved", saved };
   console.error("Nudge: could not save a job", error);
-  return "failed";
+  return { kind: "failed" };
+}
+
+/** Applied at a time, or back to saved with null. */
+export async function setApplied(db: Db, id: string, appliedAt: string | null): Promise<boolean> {
+  const { error } = await db.from("saved_jobs").update({ status: appliedAt ? "applied" : "saved", applied_at: appliedAt }).eq("id", id);
+  if (error) console.error("Nudge: could not change a saved job", error);
+  return !error;
+}
+
+export async function removeSaved(db: Db, id: string): Promise<boolean> {
+  const { error } = await db.from("saved_jobs").delete().eq("id", id);
+  if (error) console.error("Nudge: could not remove a saved job", error);
+  return !error;
+}
+
+/** Undo: the same row back, with its id, status and times. */
+export async function restoreSaved(db: Db, saved: SavedJob): Promise<boolean> {
+  const { error } = await db.from("saved_jobs").insert({
+    id: saved.id, source: saved.source, board_token: saved.board, job_id: saved.jobId, title: saved.title,
+    company_name: saved.company, location: saved.location || null, url: saved.url, posted_at: saved.postedAt,
+    status: saved.status, saved_at: saved.savedAt, applied_at: saved.appliedAt,
+  });
+  if (error) console.error("Nudge: could not put a saved job back", error);
+  return !error;
 }

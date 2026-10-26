@@ -90,3 +90,25 @@ export async function searchCompanies(companies: Company[], query: string, getBo
   }));
   return { jobs: jobs.slice(0, MAX_RESULTS), total: jobs.length, unavailable, openRoles };
 }
+
+export interface SavedRef {
+  source: Source;
+  board: string;
+  jobId: string;
+}
+
+/** Which saved jobs are no longer posted: their id is gone from a board that answered, or the board itself is gone.
+ *  Each board is asked once. A board that didn't answer can't tell, so its jobs are "unchecked", never "closed". */
+export async function closedJobs(saved: SavedRef[], getBoard: BoardGetter): Promise<{ closed: string[]; unchecked: string[] }> {
+  const boards = [...new Map(saved.map((s) => [companyKey(s), s])).values()];
+  const results = new Map(await Promise.all(boards.map(async (b) => [companyKey(b), await getBoard(b.source, b.board, b.board)] as const)));
+  const closed: string[] = [];
+  const unchecked: string[] = [];
+  for (const s of saved) {
+    const result = results.get(companyKey(s));
+    const key = `${companyKey(s)}:${s.jobId}`;
+    if (!result || result.kind === "unavailable") unchecked.push(key);
+    else if (result.kind === "not-found" || !result.jobs.some((j) => j.id === s.jobId)) closed.push(key);
+  }
+  return { closed, unchecked };
+}

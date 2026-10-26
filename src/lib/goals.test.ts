@@ -83,6 +83,11 @@ describe("withFreshIds", () => {
     expect(Number.isNaN(Date.parse(old.createdAt))).toBe(false);
   });
 
+  it("drops the link to a saved job, which belongs to the account the backup came from", () => {
+    const linked = { ...backup, entries: [{ ...backup.entries[0], savedJobId: "someone-elses-job" }] };
+    expect(withFreshIds(linked).entries[0]).not.toHaveProperty("savedJobId");
+  });
+
   it("drops entries the database would refuse (no goal, or not a whole count) and the old session", () => {
     expect(restored.entries).toHaveLength(1);
     expect(restored.session).toBeNull();

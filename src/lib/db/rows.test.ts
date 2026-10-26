@@ -61,8 +61,14 @@ describe("goal rows", () => {
 describe("entry rows", () => {
   it("round-trips an entry", () => {
     const row = entryToRow(entry);
-    expect(row).toEqual({ id: entry.id, goal_id: goal.id, date: "2026-10-26", amount: 3, at: entry.at });
+    expect(row).toEqual({ id: entry.id, goal_id: goal.id, saved_job_id: null, date: "2026-10-26", amount: 3, at: entry.at });
     expect(rowToEntry({ ...row, user_id: "user_abc", saved_job_id: null, at: "2026-10-26T15:30:00+00:00" })).toEqual(entry);
+  });
+
+  it("keeps the saved job an Applied entry came from", () => {
+    const applied = { ...entry, savedJobId: "0b5c7d1e-3333-4a2b-9c3d-000000000003" };
+    expect(entryToRow(applied).saved_job_id).toBe(applied.savedJobId);
+    expect(rowToEntry(entryToRow(applied))).toEqual(applied);
   });
 
   it("drops an entry with the wrong shape", () => {

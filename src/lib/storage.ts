@@ -17,7 +17,7 @@ export function emptyData(): AppData {
     version: 1,
     goals: [],
     entries: [],
-    settings: { reminderTimes: DEFAULT_REMINDER_TIMES, notificationsOn: false, nudgesSetUp: false, nudgePromptSnoozedOn: null, weekSummarySeenFor: null, streakTipSeen: false, calendarUntil: null },
+    settings: { reminderTimes: DEFAULT_REMINDER_TIMES, notificationsOn: false, nudgesSetUp: false, nudgePromptSnoozedOn: null, weekSummarySeenFor: null, streakTipSeen: false, calendarUntil: null, applyGoalId: null },
     lastVisit: null,
     session: null,
   };
@@ -72,6 +72,7 @@ function parseSettings(settings: unknown): Settings | null {
     weekSummarySeenFor: isString(settings.weekSummarySeenFor) && /^\d{4}-\d{2}-\d{2}$/.test(settings.weekSummarySeenFor) ? settings.weekSummarySeenFor : null,
     streakTipSeen: settings.streakTipSeen === true,
     calendarUntil: isString(settings.calendarUntil) ? settings.calendarUntil : null,
+    applyGoalId: isString(settings.applyGoalId) ? settings.applyGoalId : null,
   };
 }
 
