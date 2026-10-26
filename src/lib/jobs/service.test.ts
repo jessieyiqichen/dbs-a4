@@ -51,6 +51,14 @@ describe("cachedBoards", () => {
     expect(fetchBoard).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a not-found answer too, so asking again for a company no system has is instant", async () => {
+    const fetchBoard = vi.fn(async (): Promise<BoardResult> => ({ kind: "not-found" }));
+    const getBoard = cachedBoards(fetchBoard);
+    await getBoard("lever", "google", "Google");
+    await getBoard("lever", "google", "Google");
+    expect(fetchBoard).toHaveBeenCalledTimes(1);
+  });
+
   it("does not keep an answer that failed, so the next search tries again", async () => {
     const fetchBoard = vi.fn(async (): Promise<BoardResult> => ({ kind: "unavailable" }));
     const getBoard = cachedBoards(fetchBoard);

@@ -87,7 +87,9 @@ function nameFromToken(token: string): string {
 /** Finds a company by name or job link: each board name is tried on Greenhouse, then Ashby, then Lever, and the
  *  first board with jobs wins. An empty board is kept only if no other has jobs, because companies that moved
  *  systems leave empty boards behind (Webflow, Squarespace on Greenhouse). Not found only when every system said
- *  so; unavailable when one of them could not answer. */
+ *  so; unavailable when one of them could not answer. All the questions go out at once and the answers are read in
+ *  that order, so a company no system has takes about one round trip instead of six in a row (user, 2026-10-26: a
+ *  name that wasn't there felt slow). */
 export async function findCompany(
   input: string,
   fetcher: Fetcher = fetch,
@@ -96,18 +98,13 @@ export async function findCompany(
 ): Promise<BoardResult> {
   const tries = candidates(input);
   const label = looksLikeLink(input.trim()) ? nameFromToken(tries[0]?.token ?? "") : input.trim();
-  let empty: BoardResult | null = null;
-  let unavailable = false;
-  for (const { source, token } of tries) {
-    for (const each of source ? [source] : SOURCES) {
-      const result = await getBoard(each, token, label);
-      if (result.kind === "found" && result.jobs.length > 0) return result;
-      if (result.kind === "found") empty ??= result;
-      if (result.kind === "unavailable") unavailable = true;
-    }
-  }
+  const asks = tries.flatMap(({ source, token }) => (source ? [source] : SOURCES).map((each) => ({ source: each, token })));
+  const results = await Promise.all(asks.map(({ source, token }) => getBoard(source, token, label)));
+  const withJobs = results.find((r) => r.kind === "found" && r.jobs.length > 0);
+  if (withJobs) return withJobs;
+  const empty = results.find((r) => r.kind === "found");
   if (empty) return empty;
-  return unavailable ? { kind: "unavailable" } : { kind: "not-found" };
+  return results.some((r) => r.kind === "unavailable") ? { kind: "unavailable" } : { kind: "not-found" };
 }
 
 /** Jobs whose title holds every word of the search, ignoring case. An empty search keeps them all. */

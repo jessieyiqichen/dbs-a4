@@ -64,14 +64,15 @@ export function summarize(result: BoardResult): CompanySummary {
   return { kind: "found", source: result.source, board: result.board, company: result.company, openRoles: result.jobs.length };
 }
 
-/** Wraps a board fetch with the shared cache. Only found boards are kept, so a system that was down is asked again. */
+/** Wraps a board fetch with the shared cache. Found and not-found answers are kept (asking again for a company no system
+ *  has is instant); "unavailable" is not, so a system that was down is asked again next time. */
 export function cachedBoards(fetchBoard: BoardGetter, cache = createCache<BoardResult>({ ttlMs: BOARD_CACHE_MS, maxEntries: BOARD_CACHE_SIZE })): BoardGetter {
   return async (source, token, label) => {
     const key = `${source}:${token}`;
     const kept = cache.get(key);
     if (kept) return kept;
     const result = await fetchBoard(source, token, label);
-    if (result.kind === "found") cache.set(key, result);
+    if (result.kind !== "unavailable") cache.set(key, result);
     return result;
   };
 }

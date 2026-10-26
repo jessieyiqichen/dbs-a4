@@ -75,14 +75,24 @@ describe("fetchBoard", () => {
 });
 
 describe("findCompany", () => {
-  it("tries Greenhouse, then Ashby, then Lever, and stops at the first board found", async () => {
-    const fetcher = vi.fn((url: string) =>
-      url.includes("ashbyhq")
-        ? reply(200, { jobs: [{ id: "n", title: "PM", jobUrl: "https://jobs.ashbyhq.com/notion/n" }] })
-        : reply(404, {}),
-    );
-    expect(await findCompany("Notion", fetcher)).toMatchObject({ kind: "found", source: "ashby", board: "notion" });
-    expect(fetcher).toHaveBeenCalledTimes(2);
+  it("asks every system at once, and still prefers Greenhouse, then Ashby, then Lever", async () => {
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Lever answers first, but Greenhouse has the company too and comes first in the order
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.includes("greenhouse")) return wait(30).then(() => reply(200, greenhouseBody));
+      if (url.includes("lever")) return reply(200, [{ id: "l", text: "PM", hostedUrl: "https://jobs.lever.co/figma/l", categories: {} }]);
+      return reply(404, {});
+    });
+    expect(await findCompany("Figma", fetcher)).toMatchObject({ kind: "found", source: "greenhouse" });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("answers about as fast as the slowest board, not the sum of all of them (user, 2026-10-26)", async () => {
+    const slow404 = () => new Promise<Response>((resolve) => setTimeout(() => resolve(new Response("{}", { status: 404 })), 50));
+    const started = Date.now();
+    // Two board names, three systems: six questions
+    expect(await findCompany("Hudson River", slow404)).toEqual({ kind: "not-found" });
+    expect(Date.now() - started).toBeLessThan(200);
   });
 
   it("passes over an empty board for one that has jobs, and keeps the empty one if that is all there is", async () => {
