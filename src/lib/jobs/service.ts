@@ -32,7 +32,11 @@ export interface SearchResult {
   total: number;
   /** Followed companies whose hiring system didn't answer this time. */
   unavailable: string[];
+  /** Open roles per followed company ("greenhouse:figma"), null when its system didn't answer; the Jobs page lists them. */
+  openRoles: Record<string, number | null>;
 }
+
+export const companyKey = (c: { source: Source; board: string }) => `${c.source}:${c.board}`;
 
 /** A company name or job link from the browser, trimmed; null when empty or too long to be either. */
 export function readName(raw: string | null): string | null {
@@ -79,5 +83,9 @@ export async function searchCompanies(companies: Company[], query: string, getBo
   const results = await Promise.all(companies.map((c) => getBoard(c.source, c.board, c.name)));
   const jobs = results.flatMap((r) => (r.kind === "found" ? matchJobs(r.jobs, query) : [])).sort(newestFirst);
   const unavailable = companies.filter((_, i) => results[i].kind !== "found").map((c) => c.name);
-  return { jobs: jobs.slice(0, MAX_RESULTS), total: jobs.length, unavailable };
+  const openRoles = Object.fromEntries(companies.map((c, i) => {
+    const result = results[i];
+    return [companyKey(c), result.kind === "found" ? result.jobs.length : null];
+  }));
+  return { jobs: jobs.slice(0, MAX_RESULTS), total: jobs.length, unavailable, openRoles };
 }

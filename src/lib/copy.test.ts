@@ -8,6 +8,7 @@ import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
 import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
 import { BACKUP_NOTE, LOAD_FAILED, SAVE_FAILED, SAVED_NOTE } from "./db/copy";
+import { addedLine, addLabel, alreadyLine, foundLine, JOBS_COPY, removedLine, rolesCount } from "./jobs/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -101,5 +102,15 @@ describe("house style: no full stops", () => {
     const errorLines = [LOAD_FAILED.title, LOAD_FAILED.next, SAVE_FAILED];
     for (const line of [...errorLines, SAVED_NOTE, BACKUP_NOTE]) expect(line, line).not.toMatch(FULL_STOP);
     for (const line of errorLines) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the Jobs page lines have no full stop, and its errors no \"!\"", () => {
+    const lines = [
+      ...linesIn(JOBS_COPY), rolesCount(1), rolesCount(139), foundLine("Figma", "greenhouse", 139), foundLine("Webflow", "greenhouse", 0),
+      addLabel("Figma"), addedLine("Figma"), removedLine("Figma"), alreadyLine("Figma"),
+    ];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    const errors = [JOBS_COPY.emptyName, JOBS_COPY.notFound, JOBS_COPY.emptyLink, JOBS_COPY.unavailable, JOBS_COPY.saveFailed, ...linesIn(JOBS_COPY.loadFailed)];
+    for (const line of errors) expect(line, line).not.toMatch(/!$/);
   });
 });

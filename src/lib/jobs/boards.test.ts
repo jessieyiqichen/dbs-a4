@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { candidates, fetchBoard, findCompany, matchJobs } from "./boards";
-import type { Job } from "./types";
+import type { BoardResult, Job, Source } from "./types";
 
 describe("candidates", () => {
   it("turns a company name into board names to try", () => {
@@ -97,6 +97,15 @@ describe("findCompany", () => {
     const fetcher = vi.fn(() => reply(200, greenhouseBody));
     await findCompany("https://job-boards.greenhouse.io/figma", fetcher);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("names a company found from a link by its board name, written like a name", async () => {
+    const getBoard = vi.fn(async (source: Source, token: string, label: string): Promise<BoardResult> =>
+      ({ kind: "found", source, board: token, company: label, jobs: [] }));
+    await findCompany("https://jobs.lever.co/spotify/3b5f", fetch, getBoard);
+    expect(getBoard).toHaveBeenCalledWith("lever", "spotify", "Spotify");
+    await findCompany("jobs.ashbyhq.com/scale-ai", fetch, getBoard);
+    expect(getBoard).toHaveBeenLastCalledWith("ashby", "scale-ai", "Scale Ai");
   });
 
   it("is not found when no source has it, and unavailable when a source could not answer", async () => {

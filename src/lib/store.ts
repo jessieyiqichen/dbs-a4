@@ -115,6 +115,12 @@ export function disconnect(): void {
   changed();
 }
 
+/** The signed-in person's Supabase client, for pages that keep their own rows (the companies on Jobs); null until
+ *  someone is signed in. */
+export function currentDb(): Db | null {
+  return db;
+}
+
 /** "Try again" after goals didn't load. */
 export function reloadData(): void {
   if (!db) return;

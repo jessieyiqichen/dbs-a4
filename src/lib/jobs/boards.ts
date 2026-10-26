@@ -78,6 +78,12 @@ export async function fetchBoard(source: Source, token: string, label: string, f
   }
 }
 
+/** Ashby and Lever send no company name, so a company found from a link is named after its board: "scale-ai" reads
+ *  "Scale Ai" (user, 2026-10-26: "spotify" in lower case looked like a mistake). */
+function nameFromToken(token: string): string {
+  return token.split("-").filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+}
+
 /** Finds a company by name or job link: each board name is tried on Greenhouse, then Ashby, then Lever, and the
  *  first board with jobs wins. An empty board is kept only if no other has jobs, because companies that moved
  *  systems leave empty boards behind (Webflow, Squarespace on Greenhouse). Not found only when every system said
@@ -89,7 +95,7 @@ export async function findCompany(
   getBoard: (source: Source, token: string, label: string) => Promise<BoardResult> = (s, t, l) => fetchBoard(s, t, l, fetcher),
 ): Promise<BoardResult> {
   const tries = candidates(input);
-  const label = looksLikeLink(input.trim()) ? (tries[0]?.token ?? "") : input.trim();
+  const label = looksLikeLink(input.trim()) ? nameFromToken(tries[0]?.token ?? "") : input.trim();
   let empty: BoardResult | null = null;
   let unavailable = false;
   for (const { source, token } of tries) {

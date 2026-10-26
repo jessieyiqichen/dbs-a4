@@ -91,6 +91,10 @@ describe("searchCompanies", () => {
   });
 
   it("answers with nothing when no company is followed yet", async () => {
-    expect(await searchCompanies([], "pm", getBoard)).toEqual({ jobs: [], total: 0, unavailable: [] });
+    expect(await searchCompanies([], "pm", getBoard)).toEqual({ jobs: [], total: 0, unavailable: [], openRoles: {} });
+  });
+
+  it("says how many roles each company has open, or null when its system didn't answer", async () => {
+    expect((await searchCompanies(companies, "", getBoard)).openRoles).toEqual({ "greenhouse:figma": 2, "ashby:notion": 1, "lever:palantir": null });
   });
 });
