@@ -28,7 +28,7 @@ export function EditGoalScreen({
         <p className="pt-6 text-muted">Loading your goal…</p>
       </>
     );
-  if (state.kind === "corrupt")
+  if (state.kind === "load-failed")
     return (
       <>
         {header}

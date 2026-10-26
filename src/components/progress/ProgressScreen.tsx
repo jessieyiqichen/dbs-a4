@@ -102,7 +102,7 @@ export function ProgressScreen({
   const state = useStore();
   if (state === null)
     return <p className="pt-6 text-muted">Loading your progress…</p>;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
 
   const { data } = state;
   const goal = data.goals.find((g) => g.id === id);

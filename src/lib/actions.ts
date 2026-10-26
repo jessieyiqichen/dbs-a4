@@ -1,7 +1,7 @@
 "use client";
 
 import { updateData } from "./store";
-import { putBack, takeOut, withEdit, type Removed } from "./goals";
+import { putBack, takeOut, withEdit, withFreshIds, type Removed } from "./goals";
 import { withPause, withoutPause } from "./progress";
 import type { AppData, Entry, Goal, Settings } from "./types";
 import type { GoalValues } from "./validate";
@@ -62,9 +62,9 @@ export function restoreGoal(removed: Removed): void {
   updateData((data) => putBack(data, removed));
 }
 
-/** Replaces everything on this device with a validated backup. */
+/** Replaces all of this person's goals with a validated backup, under new ids (see withFreshIds). */
 export function restoreData(backup: AppData): void {
-  updateData(() => backup);
+  updateData(() => withFreshIds(backup));
 }
 
 /** Tapping Start: remember which goal, so coming back asks how many. */

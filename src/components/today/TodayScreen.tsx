@@ -124,7 +124,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
   }, [view, state, picked, justDone, router]);
 
   if (state === null) return <RoomSkeleton />;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
 
   const { data } = state;
   const now = new Date();
@@ -150,7 +150,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
   if (data.goals.length === 0) {
     return (
       <>
-        {!state.persistent && <StorageNotice state={state} />}
+        {state.saveFailed && <StorageNotice state={state} />}
         <FirstVisit />
       </>
     );
@@ -196,7 +196,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
 
   return (
     <>
-      {!state.persistent && <StorageNotice state={state} />}
+      {state.saveFailed && <StorageNotice state={state} />}
 
       {view === "session" ? (
         asking ? (

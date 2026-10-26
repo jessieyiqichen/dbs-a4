@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { emptyData, loadData, parseData, saveData, STORAGE_KEY } from "./storage";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEVICE_KEY, emptyData, loadDevice, parseData, saveDevice } from "./storage";
 
 class MemoryStorage {
   private store = new Map<string, string>();
@@ -8,31 +8,38 @@ class MemoryStorage {
   removeItem(key: string) { this.store.delete(key); }
 }
 
-describe("storage", () => {
+const { settings, lastVisit, session } = emptyData();
+const deviceDefaults = { settings, lastVisit, session };
+
+describe("storage: what stays on this device", () => {
   let storage: MemoryStorage;
   beforeEach(() => { storage = new MemoryStorage(); });
 
-  it("starts empty when nothing is saved", () => {
-    expect(loadData(storage)).toEqual({ ok: true, data: emptyData() });
+  it("starts with default settings when nothing is saved", () => {
+    expect(loadDevice(storage)).toEqual(deviceDefaults);
   });
 
-  it("round-trips saved data", () => {
-    const data = { ...emptyData(), lastVisit: "2026-10-17" };
-    expect(saveData(data, storage)).toBe(true);
-    expect(loadData(storage)).toEqual({ ok: true, data });
+  it("round-trips settings, the last visit and the session in progress, and nothing else", () => {
+    const device = { ...deviceDefaults, lastVisit: "2026-10-26", session: { goalId: "g", startedAt: "2026-10-26T15:00:00.000Z" } };
+    expect(saveDevice({ ...emptyData(), ...device, goals: [] }, storage)).toBe(true);
+    expect(JSON.parse(storage.getItem(DEVICE_KEY) ?? "{}")).not.toHaveProperty("goals");
+    expect(loadDevice(storage)).toEqual(device);
   });
 
-  it("reports corrupt data and keeps the raw text", () => {
-    storage.setItem(STORAGE_KEY, "{not json");
-    expect(loadData(storage)).toEqual({ ok: false, reason: "corrupt", raw: "{not json" });
+  it("falls back to defaults when the saved settings can't be read, and says so in the console", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    storage.setItem(DEVICE_KEY, "{not json");
+    expect(loadDevice(storage)).toEqual(deviceDefaults);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 
-  it("reports unavailable storage", () => {
-    expect(loadData(null)).toEqual({ ok: false, reason: "unavailable" });
-    expect(saveData(emptyData(), null)).toBe(false);
+  it("works without storage (private mode), it just can't keep settings", () => {
+    expect(loadDevice(null)).toEqual(deviceDefaults);
+    expect(saveDevice(emptyData(), null)).toBe(false);
   });
 
-  it("rejects data with the wrong shape", () => {
+  it("rejects a backup with the wrong shape", () => {
     expect(parseData(JSON.stringify({ version: 1, goals: "nope" }))).toBeNull();
     expect(parseData(JSON.stringify({ ...emptyData(), goals: [{ id: 1 }] }))).toBeNull();
   });

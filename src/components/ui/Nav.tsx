@@ -50,7 +50,7 @@ export function NavLinks({ pathname }: { pathname: string | null }) {
 export function Nav() {
   const pathname = usePathname();
   const store = useStore();
-  const hasGoals = store?.kind === "ready" ? store.data.goals.length > 0 : store?.kind === "corrupt";
+  const hasGoals = store?.kind === "ready" ? store.data.goals.length > 0 : store?.kind === "load-failed";
   if (pathname === "/" && !hasGoals) return null;
   return <NavLinks pathname={pathname} />;
 }

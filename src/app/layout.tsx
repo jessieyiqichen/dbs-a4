@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { preload } from "react-dom";
+import { DataSync } from "@/components/auth/DataSync";
 import { Notifier } from "@/components/Notifier";
 import { clerkAppearance } from "@/lib/auth/appearance";
 import { clerkLocalization } from "@/lib/auth/copy";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           signInFallbackRedirectUrl="/"
           signUpFallbackRedirectUrl="/"
         >
+          <DataSync />
           {children}
           <Notifier />
         </ClerkProvider>

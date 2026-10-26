@@ -10,10 +10,10 @@ export function NewGoalScreen() {
   const router = useRouter();
   const state = useStore();
   if (state === null) return <p className="pt-6 text-muted">Loading…</p>;
-  if (state.kind === "corrupt") return <StorageNotice state={state} />;
+  if (state.kind === "load-failed") return <StorageNotice state={state} />;
   return (
     <>
-      {!state.persistent && <StorageNotice state={state} />}
+      {state.saveFailed && <StorageNotice state={state} />}
       <GoalWizard onCancel={() => router.push("/goals")} onStarted={() => router.push("/session")} />
     </>
   );

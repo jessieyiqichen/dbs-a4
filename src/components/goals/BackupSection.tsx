@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { restoreData } from "@/lib/actions";
 import { toISODate } from "@/lib/dates";
+import { BACKUP_NOTE } from "@/lib/db/copy";
 import { downloadText } from "@/lib/download";
 import { parseData } from "@/lib/storage";
 import type { AppData } from "@/lib/types";
@@ -46,7 +47,7 @@ export function BackupSection({ data }: { data: AppData }) {
         <span aria-hidden="true" className="text-muted transition-transform group-open:rotate-90">→</span>
       </summary>
       <div className="mt-3 flex flex-col gap-4">
-        <p className="text-sm font-bold text-muted">Your goals live only in this browser, so keep a copy now and then</p>
+        <p className="text-sm font-bold text-muted">{BACKUP_NOTE}</p>
         <div className="flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => downloadText(JSON.stringify(data, null, 2), `nudge-backup-${toISODate(new Date())}.json`, "application/json")}>
             Download a copy
@@ -58,7 +59,7 @@ export function BackupSection({ data }: { data: AppData }) {
         {pending && (
           <div role="alert" className="flex flex-col gap-3 px-1 py-2">
             <p className="font-bold text-ink">
-              This replaces everything here with the {pending.goals.length === 1 ? "1 goal" : `${pending.goals.length} goals`} in the file
+              This replaces all your goals with the {pending.goals.length === 1 ? "1 goal" : `${pending.goals.length} goals`} in the file
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="danger" onClick={confirmRestore}>Replace with backup</Button>

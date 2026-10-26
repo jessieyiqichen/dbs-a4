@@ -48,7 +48,7 @@ export function GoalsScreen({ selected, fromToday = false }: Props) {
         <p className="pt-6 text-muted">Loading your goals…</p>
       </>
     );
-  if (state.kind === "corrupt")
+  if (state.kind === "load-failed")
     return (
       <>
         {HEADER}
@@ -64,7 +64,7 @@ export function GoalsScreen({ selected, fromToday = false }: Props) {
   const list = (
     <>
       {HEADER}
-      {!state.persistent && <StorageNotice state={state} />}
+      {state.saveFailed && <StorageNotice state={state} />}
       {data.goals.length === 0 ? (
         <div className="mt-8 flex flex-col gap-4">
           <p className="text-lg font-bold text-ink">
