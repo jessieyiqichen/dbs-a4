@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Toast } from "@/components/ui/Toast";
 import type { FollowedCompany } from "@/lib/jobs/companies";
-import { addedLine, JOBS_COPY, removedLine, SAVED_COPY, savedTab } from "@/lib/jobs/copy";
+import { addedLine, CHANGE_COPY, JOBS_COPY, removedLine, SAVED_COPY, savedTab, searchingLine } from "@/lib/jobs/copy";
 import { savedKeys, retrySaved, saveFoundJob, useSavedJobs } from "@/lib/jobs/savedStore";
 import { companyKey, type Company } from "@/lib/jobs/service";
 import { useStore } from "@/lib/store";
@@ -35,7 +35,7 @@ function LoadFailed({ title, next, onRetry }: { title: string; next: string; onR
 }
 
 /** Search | Saved (user, 2026-10-26): one list at a time. The chosen one looks like a selected goal tab. */
-function ViewSwitch({ view, savedCount, onChange }: { view: View; savedCount: number; onChange: (v: View) => void }) {
+function ViewSwitch({ view, savedCount, onChange }: { view: View; savedCount: number | null; onChange: (v: View) => void }) {
   const option = (value: View, label: string) => (
     <Button variant="secondary" aria-pressed={view === value} onClick={() => onChange(value)}
       className={view === value ? "bg-primary-soft [--lip:var(--color-lip)]" : ""}>
@@ -45,19 +45,21 @@ function ViewSwitch({ view, savedCount, onChange }: { view: View; savedCount: nu
   return (
     <div role="group" aria-label="Show" className="flex gap-2 pt-4 lg:col-span-12 lg:pt-0">
       {option("search", SAVED_COPY.tabSearch)}
-      {option("saved", savedTab(savedCount))}
+      {/* No count until the list has loaded, so it never reads "Saved 0" by mistake */}
+      {option("saved", savedCount === null ? SAVED_COPY.tabSaved : savedTab(savedCount))}
     </div>
   );
 }
 
 /** Jobs: search the followed companies' roles and save them (6c), the companies themselves (6b), and the saved list
- *  (6d). On a phone the search comes first, since coming back that's what people do most (user, 2026-10-26); on a
- *  desktop the companies are on the left and the search on the right. */
+ *  (6d). On a phone the companies fold into one line above the search; on a desktop they are on the left and the
+ *  search on the right. */
 export function JobsScreen() {
   const { state, retry, add, remove, undoRemove } = useCompanies();
   const saved = useSavedJobs();
   const store = useStore();
   const [view, setView] = useState<View>("search");
+  const [companiesOpen, setCompaniesOpen] = useState(false);
   const [openRoles, setOpenRoles] = useState<Record<string, number | null>>({});
   const [notice, setNotice] = useState<Notice>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function JobsScreen() {
     return (
       <div className="flex flex-col gap-6 lg:max-w-2xl">
         <h1 className="sr-only">Jobs</h1>
-        <ViewSwitch view={view} savedCount={savedJobs.length} onChange={setView} />
+        <ViewSwitch view={view} savedCount={saved.kind === "ready" ? savedJobs.length : null} onChange={setView} />
         {saved.kind === "loading" && <p className="text-muted">Loading your saved jobs…</p>}
         {saved.kind === "load-failed" && <LoadFailed {...SAVED_COPY.loadFailed} onRetry={retrySaved} />}
         {saved.kind === "ready" && (
@@ -108,27 +110,39 @@ export function JobsScreen() {
     );
   }
 
+  // On a phone the companies fold into one line above the search, opened in place with "Change" (user, 2026-10-26: with
+  // many roles they were far below). With no companies yet there is nothing to fold. A desktop shows both columns.
+  const folded = companies.length > 0 && !companiesOpen;
   return (
-    // Search comes first in the page itself, not just on screen, so keyboard and screen-reader order match what a
-    // phone shows; on a desktop it is placed in the right-hand column
-    <div className="flex flex-col gap-10 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-8">
+    <div className="flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-8 lg:gap-y-10">
       <h1 className="sr-only">Jobs</h1>
-      {showSwitch && <ViewSwitch view={view} savedCount={savedJobs.length} onChange={setView} />}
+      {showSwitch && <ViewSwitch view={view} savedCount={saved.kind === "ready" ? savedJobs.length : null} onChange={setView} />}
+      <div className="flex flex-col gap-6 lg:col-span-5 lg:col-start-1 lg:row-start-2">
+        {companies.length > 0 && (
+          <div className="flex items-center justify-between gap-3 lg:hidden">
+            <p className="font-bold text-ink">{searchingLine(companies.map((c) => c.name))}</p>
+            <Button variant="ghost" aria-expanded={companiesOpen} aria-controls="companies-panel" onClick={() => setCompaniesOpen((o) => !o)}>
+              {companiesOpen ? CHANGE_COPY.close : CHANGE_COPY.open}
+              <span aria-hidden="true">{companiesOpen ? "▴" : "▾"}</span>
+            </Button>
+          </div>
+        )}
+        <div id="companies-panel" className={`${folded ? "hidden lg:flex" : "flex"} flex-col gap-6`}>
+          {companies.length === 0 ? EMPTY_HEADER : HEADER}
+          {error && <p role="alert" className="font-semibold text-danger">{error}</p>}
+          {companies.length === 0 ? (
+            <SuggestedCompanies onAdd={(c) => void addCompany(c)} busy={busy} />
+          ) : (
+            <CompanyList companies={companies} openRoles={openRoles} onRemove={(c) => void removeCompany(c)} />
+          )}
+          <AddCompany followed={followed} prominent={companies.length === 0} onAdd={addCompany} />
+        </div>
+      </div>
       {companies.length > 0 && (
         <div className="lg:col-span-7 lg:col-start-6 lg:row-start-2">
           <JobSearch companies={companies} saved={savedKeys(saved)} onSave={saveFoundJob} onOpenRoles={setOpenRoles} />
         </div>
       )}
-      <div className="flex flex-col gap-6 lg:col-span-5 lg:col-start-1 lg:row-start-2">
-        {companies.length === 0 ? EMPTY_HEADER : HEADER}
-        {error && <p role="alert" className="font-semibold text-danger">{error}</p>}
-        {companies.length === 0 ? (
-          <SuggestedCompanies onAdd={(c) => void addCompany(c)} busy={busy} />
-        ) : (
-          <CompanyList companies={companies} openRoles={openRoles} onRemove={(c) => void removeCompany(c)} />
-        )}
-        <AddCompany followed={followed} prominent={companies.length === 0} onAdd={addCompany} />
-      </div>
       {toast}
     </div>
   );

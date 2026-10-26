@@ -71,6 +71,7 @@ export const someDownLine = (names: string[]) => `${companyList(names)} didn't a
 /** 6d: the saved list on Jobs, and saved jobs on the applications goal's page (agreed 2026-10-26). */
 export const SAVED_COPY = {
   tabSearch: "Search",
+  tabSaved: "Saved",
   empty: "Save a role from the search and it'll wait here for you",
   iApplied: "I applied",
   applied: "Applied ✓",
@@ -90,3 +91,8 @@ export const SAVED_COPY = {
 export const savedTab = (count: number) => `Saved ${count}`;
 export const savedWhen = (status: "saved" | "applied", ago: string | null) => (ago ? `${status} ${ago}` : status);
 export const addedToGoal = (goalTitle: string) => `Added 1 to "${goalTitle}"! One more fish for Titi`;
+
+/** On a phone the companies fold into one line above the search (user, 2026-10-26: with many roles, scrolling down to
+ *  the companies was hard). */
+export const searchingLine = (names: string[]) => `Searching ${companyList(names)}`;
+export const CHANGE_COPY = { open: "Change", close: "Done" };
