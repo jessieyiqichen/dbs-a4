@@ -37,6 +37,10 @@ describe("lookupCompany", () => {
     expect(await lookupCompany("Uber", () => answer(200, { kind: "unavailable" }))).toEqual({ kind: "unavailable" });
   });
 
+  it("says so when there were too many lookups in a minute", async () => {
+    expect(await lookupCompany("Figma", () => answer(429, { error: "slow down" }))).toEqual({ kind: "too-many" });
+  });
+
   it("treats a broken or strange answer as the systems being unavailable", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await lookupCompany("Figma", () => answer(500, {}))).toEqual({ kind: "unavailable" });
@@ -82,6 +86,13 @@ describe("saving followed companies", () => {
   it("says so when the company is already followed (the table allows one of each)", async () => {
     const { db } = fakeDb([], "23505");
     expect(await follow(db, { source: "greenhouse", board: "figma", name: "Figma" })).toEqual({ kind: "already" });
+  });
+
+  it("says so when the 25-company limit is reached (the database refuses a 26th)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { db } = fakeDb([], "P0001");
+    expect(await follow(db, { source: "greenhouse", board: "figma", name: "Figma" })).toEqual({ kind: "limit" });
+    vi.restoreAllMocks();
   });
 
   it("reports other failures so the page can say it didn't save", async () => {

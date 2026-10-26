@@ -29,6 +29,10 @@ const TOKEN = /^[a-z0-9-]{1,64}$/;
 const COLUMNS = "id, source, board_token, name, added_at";
 /** Postgres's answer when a unique rule is broken: here, the same company followed twice. */
 const ALREADY_EXISTS = "23505";
+/** The database's own refusal of a 26th company (migration companies_follow_limit). */
+const OVER_LIMIT = "P0001";
+/** Every search fetches each followed company's board, so one person follows at most this many (security review). */
+export const MAX_COMPANIES = 25;
 
 type Fetcher = (url: string) => Promise<Response>;
 
@@ -51,9 +55,12 @@ function isSummary(value: unknown): value is CompanySummary {
 
 /** Asks our server to find a company on Greenhouse, Ashby or Lever. Anything unexpected counts as unavailable, so the
  *  page says "try again" rather than "not found" when it simply couldn't tell. */
-export async function lookupCompany(name: string, fetcher: Fetcher = fetch): Promise<CompanySummary> {
+export type LookupResult = CompanySummary | { kind: "too-many" };
+
+export async function lookupCompany(name: string, fetcher: Fetcher = fetch): Promise<LookupResult> {
   try {
     const response = await fetcher(`/api/jobs/company?${new URLSearchParams({ name })}`);
+    if (response.status === 429) return { kind: "too-many" };
     const body: unknown = response.ok ? await response.json() : null;
     if (isSummary(body)) return body;
     console.error("Jobs: the company lookup answered", response.status);
@@ -72,7 +79,7 @@ export async function loadFollowed(db: Db): Promise<FollowedCompany[]> {
   return kept;
 }
 
-export type FollowResult = { kind: "followed"; company: FollowedCompany } | { kind: "already" } | { kind: "failed" };
+export type FollowResult = { kind: "followed"; company: FollowedCompany } | { kind: "already" } | { kind: "limit" } | { kind: "failed" };
 
 /** Follows a company. No user_id is sent: the database fills it in from the signed-in person's token. */
 export async function follow(db: Db, company: Company): Promise<FollowResult> {
@@ -80,6 +87,7 @@ export async function follow(db: Db, company: Company): Promise<FollowResult> {
     .insert({ source: company.source, board_token: company.board, name: company.name })
     .select(COLUMNS).single();
   if (error?.code === ALREADY_EXISTS) return { kind: "already" };
+  if (error?.code === OVER_LIMIT) return { kind: "limit" };
   const followed = error ? null : rowToFollowed(data);
   if (followed) return { kind: "followed", company: followed };
   console.error("Nudge: could not follow a company", error);

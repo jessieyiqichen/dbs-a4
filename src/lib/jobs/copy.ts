@@ -18,6 +18,8 @@ export const JOBS_COPY = {
   linkPlaceholder: "https://jobs.lever.co/…",
   emptyLink: "Paste a job link, like jobs.lever.co/spotify",
   unavailable: "A hiring system didn't answer, try again in a minute",
+  tooMany: "Too many searches at once, wait a minute and try again",
+  limit: "You follow 25 companies, remove one to add another",
   saveFailed: "That didn't save, check your connection and try again",
   loadFailed: { title: "Your companies didn't load", next: "Check your connection, then try again" },
   rolesUnknown: "didn't answer just now",

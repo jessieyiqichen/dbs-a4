@@ -23,7 +23,7 @@ interface JobSearchProps {
   companies: FollowedCompany[];
   saved: Set<string>;
   onSave: (job: Job) => Promise<boolean>;
-  onAdd: (company: Company) => Promise<"followed" | "already" | "failed">;
+  onAdd: (company: Company) => Promise<"followed" | "already" | "limit" | "failed">;
   onRemove: (company: FollowedCompany) => void;
 }
 

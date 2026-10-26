@@ -37,7 +37,8 @@ export async function searchRoles(query: string, fetcher: Fetcher = fetch, compa
     const params = new URLSearchParams({ q: query, ...(company ? { company } : {}) });
     const response = await fetcher(`/api/jobs/search?${params}`);
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (response.status === 400 && isString(body?.error)) return { kind: "refused", message: body.error };
+    // Refused (400) or too many at once (429): the server's own line says what to do next
+    if ((response.status === 400 || response.status === 429) && isString(body?.error)) return { kind: "refused", message: body.error };
     if (response.ok && body && Array.isArray(body.jobs) && typeof body.total === "number") {
       return {
         kind: "result",

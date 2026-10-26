@@ -58,6 +58,11 @@ describe("searchRoles", () => {
     expect((await searchRoles("", fetcher)).kind === "result" && (await searchRoles("", fetcher))).toMatchObject({ jobs: [job] });
   });
 
+  it("passes on the server's message when there were too many searches in a minute", async () => {
+    expect(await searchRoles("pm", () => answer(429, { error: "Too many searches at once, wait a minute and try again" })))
+      .toEqual({ kind: "refused", message: "Too many searches at once, wait a minute and try again" });
+  });
+
   it("reports the server's own message for a refused search, and a plain failure otherwise", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await searchRoles("x".repeat(101), () => answer(400, { error: "Keep the search under 100 characters" }))).toEqual({ kind: "refused", message: "Keep the search under 100 characters" });

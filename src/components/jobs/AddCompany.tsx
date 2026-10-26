@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, TextInput } from "@/components/ui/Field";
-import { lookupCompany } from "@/lib/jobs/companies";
+import { lookupCompany, MAX_COMPANIES } from "@/lib/jobs/companies";
 import { addLabel, alreadyLine, foundLine, JOBS_COPY } from "@/lib/jobs/copy";
 import { companyKey, type Company, type CompanySummary } from "@/lib/jobs/service";
 
@@ -14,13 +14,15 @@ type Step =
   | { kind: "found"; company: Found }
   | { kind: "not-found" }
   | { kind: "unavailable" }
+  | { kind: "too-many" }
+  | { kind: "limit" }
   | { kind: "already"; name: string };
 
 interface AddCompanyProps {
   followed: Set<string>;
   /** False once there are companies to search: Search is then the page's one green button, and Find and Add are white. */
   prominent: boolean;
-  onAdd: (company: Company) => Promise<"followed" | "already" | "failed">;
+  onAdd: (company: Company) => Promise<"followed" | "already" | "limit" | "failed">;
 }
 
 /** Type a name, see what was found, then Add: nothing is followed until the person has seen which company it is, so a
@@ -42,6 +44,8 @@ export function AddCompany({ followed, prominent, onAdd }: AddCompanyProps) {
       return;
     }
     setError(null);
+    // At the limit there is nothing to look up: say so first, rather than after a search
+    if (followed.size >= MAX_COMPANIES) return setStep({ kind: "limit" });
     setStep({ kind: "looking" });
     const result = await lookupCompany(input.trim());
     if (result.kind === "found" && followed.has(companyKey(result))) setStep({ kind: "already", name: result.company });
@@ -55,6 +59,7 @@ export function AddCompany({ followed, prominent, onAdd }: AddCompanyProps) {
     setAdding(false);
     if (outcome === "failed") return setError({ field: "name", text: JOBS_COPY.saveFailed });
     if (outcome === "already") return setStep({ kind: "already", name: company.company });
+    if (outcome === "limit") return setStep({ kind: "limit" });
     setName("");
     setLink("");
     setStep({ kind: "idle" });
@@ -96,6 +101,8 @@ export function AddCompany({ followed, prominent, onAdd }: AddCompanyProps) {
         )}
         {step.kind === "already" && <p className="font-bold text-ink">{alreadyLine(step.name)}</p>}
         {step.kind === "unavailable" && <p className="font-semibold text-danger">{JOBS_COPY.unavailable}</p>}
+        {step.kind === "too-many" && <p className="font-semibold text-danger">{JOBS_COPY.tooMany}</p>}
+        {step.kind === "limit" && <p className="font-semibold text-danger">{JOBS_COPY.limit}</p>}
         {step.kind === "not-found" && <p className="font-semibold text-danger">{JOBS_COPY.notFound}</p>}
       </div>
       {step.kind === "not-found" && (

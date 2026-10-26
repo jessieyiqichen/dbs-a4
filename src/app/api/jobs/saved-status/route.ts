@@ -1,5 +1,5 @@
 import { serverDbForRequest } from "@/lib/db/server";
-import { getBoard } from "@/lib/jobs/server";
+import { getBoard, limits, tooMany } from "@/lib/jobs/server";
 import { closedJobs, type SavedRef } from "@/lib/jobs/service";
 import { SOURCES, type Source } from "@/lib/jobs/types";
 
@@ -8,8 +8,10 @@ const TOKEN = /^[a-z0-9-]{1,64}$/;
 /** GET /api/jobs/saved-status: which of the signed-in person's saved jobs are no longer posted. Their saved jobs are
  *  read from Supabase with their own token (RLS applies); each board comes from the shared 10-minute cache. */
 export async function GET() {
-  const db = await serverDbForRequest();
-  if (!db) return Response.json({ error: "Sign in to check saved jobs" }, { status: 401 });
+  const signedIn = await serverDbForRequest();
+  if (!signedIn) return Response.json({ error: "Sign in to check saved jobs" }, { status: 401 });
+  if (!limits.savedStatus(signedIn.userId)) return tooMany();
+  const { db } = signedIn;
   const { data, error } = await db.from("saved_jobs").select("source, board_token, job_id");
   if (error) {
     console.error("Jobs: could not read saved jobs", error);
