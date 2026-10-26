@@ -112,7 +112,7 @@ export function ProgressScreen({
         <Header title="Progress" fromToday={fromToday} />
         <div className="mt-8 flex flex-col gap-4">
           <p className="text-lg font-bold text-ink">
-            This goal isn&apos;t saved on this device, it may have been removed
+            This goal isn&apos;t in your account, it may have been removed
           </p>
           <ButtonLink href="/goals" className="self-start">
             See your goals
