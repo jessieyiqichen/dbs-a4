@@ -140,7 +140,8 @@ export function ProgressScreen({
     return (
       <>
         <PageHeader title={goal.title} back={null} level="h2" />
-        <p className="mt-3 flex items-center gap-3 font-bold text-muted">
+        {/* A div, not a p: Titi's picture is a div, which a paragraph can't hold (React's hydration warning) */}
+        <div className="mt-3 flex items-center gap-3 font-bold text-muted">
           {!byDate && (
             <CatArt
               mood={plan.status === "done" ? "loaf" : "idle"}
@@ -152,7 +153,7 @@ export function ProgressScreen({
             {lastRest &&
               ` · ${formatShortDate(lastRest)} was your free rest day, one a week`}
           </span>
-        </p>
+        </div>
         <div className="mt-6">
           {byDate ? (
             <Road goal={goal} story={roadStory(goal, data.entries, today)} />
