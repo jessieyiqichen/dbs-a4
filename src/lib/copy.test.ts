@@ -6,6 +6,7 @@ import { goalSentence } from "./phrases";
 import { dailyPreview, parseCount, parseTime, validateGoal } from "./validate";
 import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
+import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -77,5 +78,10 @@ describe("house style: no full stops", () => {
 
   it("the goal sentence has no full stop", () => {
     expect(goalSentence({ verb: "Send", unit: "connection requests", type: "by-date", target: 500, deadline: "2026-12-01" })).not.toMatch(FULL_STOP);
+  });
+
+  it("the sign-in and sign-up lines, ours and Clerk's rewritten ones, have no full stop", () => {
+    const lines = [AUTH_INTRO, clerkLocalization.signIn.start.subtitle, clerkLocalization.signUp.start.subtitle];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
   });
 });

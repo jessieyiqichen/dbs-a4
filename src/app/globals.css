@@ -1,3 +1,5 @@
+/* Clerk's sign-in styles go in their own layer, under Tailwind's utilities, so Fish Treat classes win (lib/auth/appearance.ts) */
+@layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 
 /* A short phone (an iPhone SE is 667px tall): Today's window and Titi shrink so the button and the reminder card stay

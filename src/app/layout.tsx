@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { preload } from "react-dom";
 import { Notifier } from "@/components/Notifier";
+import { clerkAppearance } from "@/lib/auth/appearance";
+import { clerkLocalization } from "@/lib/auth/copy";
 import { SIGN_IN_PATH, SIGN_UP_PATH } from "@/lib/auth/routes";
 import "./globals.css";
 
@@ -28,7 +30,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ClerkProvider signInUrl={SIGN_IN_PATH} signUpUrl={SIGN_UP_PATH} signInFallbackRedirectUrl="/" signUpFallbackRedirectUrl="/">
+        <ClerkProvider
+          appearance={clerkAppearance}
+          localization={clerkLocalization}
+          signInUrl={SIGN_IN_PATH}
+          signUpUrl={SIGN_UP_PATH}
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
+        >
           {children}
           <Notifier />
         </ClerkProvider>

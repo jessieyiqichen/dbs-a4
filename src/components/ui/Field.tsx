@@ -44,7 +44,7 @@ export function Field({ id, label, hint, error, children }: FieldProps) {
   );
 }
 
-const inputClass =
+export const inputClass =
   "min-h-12 w-full rounded-xl border-2 border-line bg-surface px-3 text-base font-bold text-ink shadow-[inset_0_2px_0_rgba(0,0,0,.04)] " +
   "placeholder:font-semibold placeholder:text-muted focus-visible:border-ink focus-visible:outline-3 focus-visible:outline-offset-0 focus-visible:outline-focus " +
   "aria-invalid:border-danger";

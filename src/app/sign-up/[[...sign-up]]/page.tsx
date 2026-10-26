@@ -1,9 +1,13 @@
 import { SignUp } from "@clerk/nextjs";
+import type { Metadata } from "next";
+import { AuthScreen } from "@/components/auth/AuthScreen";
+
+export const metadata: Metadata = { title: "Sign up · Nudge" };
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <AuthScreen>
       <SignUp />
-    </div>
+    </AuthScreen>
   );
 }
