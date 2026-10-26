@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { follow, lookupCompany, loadFollowed, loadOpenRoles, refollow, rowToFollowed, SUGGESTED, unfollow, type FollowedCompany } from "./companies";
+import { follow, lookupCompany, loadFollowed, refollow, rowToFollowed, SUGGESTED, unfollow, type FollowedCompany } from "./companies";
 import type { Db } from "../db/remote";
 
 const figma: FollowedCompany = { id: "c1", source: "greenhouse", board: "figma", name: "Figma", addedAt: "2026-10-26T10:00:00.000Z" };
@@ -42,19 +42,6 @@ describe("lookupCompany", () => {
     expect(await lookupCompany("Figma", () => answer(500, {}))).toEqual({ kind: "unavailable" });
     expect(await lookupCompany("Figma", () => answer(200, { kind: "found" }))).toEqual({ kind: "unavailable" });
     expect(await lookupCompany("Figma", () => Promise.reject(new Error("offline")))).toEqual({ kind: "unavailable" });
-    vi.restoreAllMocks();
-  });
-});
-
-describe("loadOpenRoles", () => {
-  it("reads how many roles each followed company has open", async () => {
-    const fetcher = () => answer(200, { jobs: [], total: 0, unavailable: [], openRoles: { "greenhouse:figma": 139, "lever:palantir": null } });
-    expect(await loadOpenRoles(fetcher)).toEqual({ "greenhouse:figma": 139, "lever:palantir": null });
-  });
-
-  it("answers with nothing known when the server can't be reached", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await loadOpenRoles(() => answer(502, {}))).toEqual({});
     vi.restoreAllMocks();
   });
 });

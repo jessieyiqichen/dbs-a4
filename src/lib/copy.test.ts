@@ -8,7 +8,7 @@ import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
 import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
 import { BACKUP_NOTE, LOAD_FAILED, SAVE_FAILED, SAVED_NOTE } from "./db/copy";
-import { addedLine, addLabel, alreadyLine, foundLine, JOBS_COPY, removedLine, rolesCount } from "./jobs/copy";
+import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine } from "./jobs/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -112,5 +112,15 @@ describe("house style: no full stops", () => {
     for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
     const errors = [JOBS_COPY.emptyName, JOBS_COPY.notFound, JOBS_COPY.emptyLink, JOBS_COPY.unavailable, JOBS_COPY.saveFailed, ...linesIn(JOBS_COPY.loadFailed)];
     for (const line of errors) expect(line, line).not.toMatch(/!$/);
+  });
+
+  it("the search lines have no full stop, read naturally, and the errors take no \"!\"", () => {
+    expect(companyList(["Anthropic", "Figma", "Notion"])).toBe("Anthropic, Figma and Notion");
+    expect(companyList(["A", "B", "C", "D", "E"])).toBe("your 5 companies");
+    expect(resultsLine(1, "", ["Figma"])).toBe("1 role at Figma, newest first");
+    const names = ["Anthropic", "Figma"];
+    const lines = [...linesIn(SEARCH_COPY), lookingLine(names), resultsLine(12, "product manager", names), resultsLine(212, "", names), moreLine(50, 212), noMatchLine("xyz"), someDownLine(["Palantir"])];
+    for (const line of lines) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of [SEARCH_COPY.allDown, noMatchLine("xyz"), someDownLine(["Palantir"])]) expect(line, line).not.toMatch(/!$/);
   });
 });

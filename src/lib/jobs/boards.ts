@@ -107,11 +107,23 @@ export async function findCompany(
   return results.some((r) => r.kind === "unavailable") ? { kind: "unavailable" } : { kind: "not-found" };
 }
 
+/** Endings a searched word may add: "engineer" finds "Engineering" and "Engineers", "manager" finds "Managers". */
+const ENDINGS = "(?:s|es|ing|ed|er|ers)?";
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** One pattern per searched word: the whole word from its start, plus a common ending, so "product" no longer finds
+ *  "Production" (user, 2026-10-26). Commas and full stops around a word are dropped; symbols inside one ("c++") are
+ *  matched as typed. */
+function wordPatterns(query: string): RegExp[] {
+  return query
+    .split(/\s+/)
+    .map((word) => word.replace(/^[,.;:!?"'()]+|[,.;:!?"'()]+$/g, ""))
+    .filter(Boolean)
+    .map((word) => new RegExp(`(?<![a-z0-9])${escape(word)}${ENDINGS}(?![a-z0-9])`, "i"));
+}
+
 /** Jobs whose title holds every word of the search, ignoring case. An empty search keeps them all. */
 export function matchJobs(jobs: Job[], query: string): Job[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  return jobs.filter((job) => {
-    const title = job.title.toLowerCase();
-    return words.every((word) => title.includes(word));
-  });
+  const patterns = wordPatterns(query);
+  return jobs.filter((job) => patterns.every((pattern) => pattern.test(job.title)));
 }

@@ -18,12 +18,14 @@ type Step =
 
 interface AddCompanyProps {
   followed: Set<string>;
+  /** False once there are companies to search: Search is then the page's one green button, and Find and Add are white. */
+  prominent: boolean;
   onAdd: (company: Company) => Promise<"followed" | "already" | "failed">;
 }
 
 /** Type a name, see what was found, then Add: nothing is followed until the person has seen which company it is, so a
  *  different company with the same name is never added by surprise (AGENTS.md). */
-export function AddCompany({ followed, onAdd }: AddCompanyProps) {
+export function AddCompany({ followed, prominent, onAdd }: AddCompanyProps) {
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [step, setStep] = useState<Step>({ kind: "idle" });
@@ -69,7 +71,8 @@ export function AddCompany({ followed, onAdd }: AddCompanyProps) {
   }
   const looking = step.kind === "looking";
   // One green button at a time: Find, until something is found and Add takes over (or the link field is the next step)
-  const findVariant = step.kind === "found" || step.kind === "not-found" ? "secondary" : "primary";
+  const findVariant = prominent && step.kind !== "found" && step.kind !== "not-found" ? "primary" : "secondary";
+  const nextVariant = prominent ? "primary" : "secondary";
 
   return (
     <section className="flex flex-col gap-4">
@@ -88,7 +91,7 @@ export function AddCompany({ followed, onAdd }: AddCompanyProps) {
         {step.kind === "found" && (
           <>
             <p className="font-bold text-ink">{foundLine(step.company.company, step.company.source, step.company.openRoles)}</p>
-            <Button onClick={() => void add(step.company)} disabled={adding} className="w-full">{addLabel(step.company.company)}</Button>
+            <Button variant={nextVariant} onClick={() => void add(step.company)} disabled={adding} className="w-full">{addLabel(step.company.company)}</Button>
           </>
         )}
         {step.kind === "already" && <p className="font-bold text-ink">{alreadyLine(step.name)}</p>}
@@ -102,7 +105,7 @@ export function AddCompany({ followed, onAdd }: AddCompanyProps) {
               <TextInput {...control} ref={linkRef} value={link} onChange={(e) => setLink(e.target.value)} placeholder={JOBS_COPY.linkPlaceholder} type="url" inputMode="url" maxLength={200} />
             )}
           </Field>
-          <Button type="submit" className="w-full">{JOBS_COPY.find}</Button>
+          <Button type="submit" variant={nextVariant} className="w-full">{JOBS_COPY.find}</Button>
         </form>
       )}
     </section>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { follow, loadFollowed, loadOpenRoles, refollow, unfollow, type FollowedCompany, type FollowResult } from "@/lib/jobs/companies";
+import { follow, loadFollowed, refollow, unfollow, type FollowedCompany, type FollowResult } from "@/lib/jobs/companies";
 import type { Company } from "@/lib/jobs/service";
 import { currentDb, useStore } from "@/lib/store";
 
@@ -12,18 +12,12 @@ export type CompaniesState =
 
 const byAdded = (a: FollowedCompany, b: FollowedCompany) => a.addedAt.localeCompare(b.addedAt);
 
-/** The companies this person follows, from Supabase, and how many roles each has open, from our server. Waits for
- *  sign-in to connect the database (the goals store does that), then loads once. */
+/** The companies this person follows, from Supabase. Waits for sign-in to connect the database (the goals store does
+ *  that), then loads once. How many roles each has open comes with the search (JobSearch). */
 export function useCompanies() {
   const store = useStore();
   const connected = store !== null;
   const [state, setState] = useState<CompaniesState>({ kind: "loading" });
-  const [openRoles, setOpenRoles] = useState<Record<string, number | null>>({});
-
-  const refreshRoles = useCallback(() => {
-    void loadOpenRoles().then(setOpenRoles);
-  }, []);
-
   // Bumped by "Try again" to load once more
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -34,7 +28,6 @@ export function useCompanies() {
       (companies) => {
         if (!live) return;
         setState({ kind: "ready", companies });
-        if (companies.length > 0) refreshRoles();
       },
       (error) => {
         console.error(error);
@@ -44,7 +37,7 @@ export function useCompanies() {
     return () => {
       live = false;
     };
-  }, [connected, attempt, refreshRoles]);
+  }, [connected, attempt]);
 
   const retry = useCallback(() => {
     setState({ kind: "loading" });
@@ -57,10 +50,9 @@ export function useCompanies() {
     const result = await follow(db, company);
     if (result.kind === "followed") {
       setState((s) => (s.kind === "ready" ? { kind: "ready", companies: [...s.companies, result.company].sort(byAdded) } : s));
-      refreshRoles();
     }
     return result;
-  }, [refreshRoles]);
+  }, []);
 
   /** Off the list right away; put back if the database said no. */
   const remove = useCallback(async (company: FollowedCompany): Promise<boolean> => {
@@ -79,5 +71,5 @@ export function useCompanies() {
     return true;
   }, []);
 
-  return { state, openRoles, retry, add, remove, undoRemove };
+  return { state, retry, add, remove, undoRemove };
 }

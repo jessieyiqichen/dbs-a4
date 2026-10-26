@@ -63,20 +63,6 @@ export async function lookupCompany(name: string, fetcher: Fetcher = fetch): Pro
   return { kind: "unavailable" };
 }
 
-/** How many roles each followed company has open; empty when it can't be told, and the list just leaves the count out. */
-export async function loadOpenRoles(fetcher: Fetcher = fetch): Promise<Record<string, number | null>> {
-  try {
-    const response = await fetcher("/api/jobs/search?q=");
-    const body: unknown = response.ok ? await response.json() : null;
-    const openRoles = (body as { openRoles?: unknown } | null)?.openRoles;
-    if (typeof openRoles === "object" && openRoles !== null) return openRoles as Record<string, number | null>;
-    console.error("Jobs: the open-roles count answered", response.status);
-  } catch (error) {
-    console.error("Jobs: the open-roles count could not be reached", error);
-  }
-  return {};
-}
-
 export async function loadFollowed(db: Db): Promise<FollowedCompany[]> {
   const { data, error } = await db.from("companies").select(COLUMNS).order("added_at");
   if (error) throw new Error(`Nudge: could not load companies: ${error.message}`, { cause: error });

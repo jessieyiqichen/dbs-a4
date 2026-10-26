@@ -156,4 +156,25 @@ describe("matchJobs", () => {
   it("keeps everything for an empty search", () => {
     expect(matchJobs(jobs, " ")).toHaveLength(3);
   });
+
+  it("matches whole words, which may add a common ending (user, 2026-10-26)", () => {
+    const titles = [
+      "Manager, Software Engineering - Production Engineering",
+      "Senior Product Managers",
+      "Engineering Manager",
+      "Software Engineer",
+      "Productivity Lead",
+      "Staff Engineer (C++)",
+    ];
+    const titlesFor = (query: string) => matchJobs(titles.map(job), query).map((j) => j.title);
+    // "product" no longer finds "Production" or "Productivity"
+    expect(titlesFor("product manager")).toEqual(["Senior Product Managers"]);
+    // "engineer" still finds "Engineering" and "Engineers"
+    expect(titlesFor("engineer")).toEqual([
+      "Manager, Software Engineering - Production Engineering", "Engineering Manager", "Software Engineer", "Staff Engineer (C++)",
+    ]);
+    // Searching with punctuation or symbols never breaks the search
+    expect(titlesFor("c++")).toEqual(["Staff Engineer (C++)"]);
+    expect(titlesFor("manager,")).toHaveLength(3);
+  });
 });

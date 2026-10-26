@@ -35,3 +35,35 @@ export const addLabel = (name: string) => `Add ${name}`;
 export const addedLine = (name: string) => `Added ${name}!`;
 export const removedLine = (name: string) => `Removed ${name}`;
 export const alreadyLine = (name: string) => `You already follow ${name}`;
+
+/** 6c: searching the followed companies' roles and saving them (agreed 2026-10-26). */
+export const SEARCH_COPY = {
+  label: "Search their roles",
+  placeholder: "Job title, like product manager",
+  search: "Search",
+  save: "Save",
+  saved: "Saved ✓",
+  saving: "Saving…",
+  view: "View posting ↗",
+  newTab: "(opens in a new tab)",
+  allDown: "The hiring systems didn't answer, try again in a minute",
+  tryAgain: "Try again",
+};
+
+/** "Anthropic, Figma and Notion", or "your 5 companies" when the list would be long. */
+export function companyList(names: string[]): string {
+  if (names.length > 3) return `your ${names.length} companies`;
+  if (names.length <= 1) return names[0] ?? "your companies";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+export const lookingLine = (names: string[]) => `Looking through ${companyList(names)}…`;
+
+export function resultsLine(total: number, query: string, names: string[]): string {
+  const roles = total === 1 ? "1 role" : `${total} roles`;
+  return query ? `${roles} match "${query}"` : `${roles} at ${companyList(names)}, newest first`;
+}
+
+export const moreLine = (shown: number, total: number) => `Showing the newest ${shown} of ${total}, add a word to narrow it`;
+export const noMatchLine = (query: string) => `No roles match "${query}" at your companies right now, try a shorter title like "designer"`;
+export const someDownLine = (names: string[]) => `${companyList(names)} didn't answer, showing the rest`;
