@@ -47,6 +47,12 @@ describe("searchRoles", () => {
     expect(fetcher).toHaveBeenCalledWith("/api/jobs/search?q=sales+%26+ops");
   });
 
+  it("asks for one company when one is chosen", async () => {
+    const fetcher = vi.fn(() => answer(200, { jobs: [], total: 0, unavailable: [], openRoles: {} }));
+    await searchRoles("pm", fetcher, "ashby:notion");
+    expect(fetcher).toHaveBeenCalledWith("/api/jobs/search?q=pm&company=ashby%3Anotion");
+  });
+
   it("drops a job with the wrong shape or a link that isn't https", async () => {
     const fetcher = () => answer(200, { jobs: [job, { ...job, id: "x", url: "javascript:alert(1)" }, { title: 3 }], total: 3, unavailable: [], openRoles: {} });
     expect((await searchRoles("", fetcher)).kind === "result" && (await searchRoles("", fetcher))).toMatchObject({ jobs: [job] });

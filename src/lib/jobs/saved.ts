@@ -30,10 +30,12 @@ function isJob(v: unknown): v is Job {
     (j.postedAt === null || isString(j.postedAt));
 }
 
-/** Asks our server for matching roles. Each job is checked before it is shown; only https links are kept. */
-export async function searchRoles(query: string, fetcher: Fetcher = fetch): Promise<SearchOutcome> {
+/** Asks our server for matching roles, at every followed company or the chosen one ("source:board"). Each job is
+ *  checked before it is shown; only https links are kept. */
+export async function searchRoles(query: string, fetcher: Fetcher = fetch, company = ""): Promise<SearchOutcome> {
   try {
-    const response = await fetcher(`/api/jobs/search?${new URLSearchParams({ q: query })}`);
+    const params = new URLSearchParams({ q: query, ...(company ? { company } : {}) });
+    const response = await fetcher(`/api/jobs/search?${params}`);
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (response.status === 400 && isString(body?.error)) return { kind: "refused", message: body.error };
     if (response.ok && body && Array.isArray(body.jobs) && typeof body.total === "number") {

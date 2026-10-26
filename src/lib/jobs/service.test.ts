@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cachedBoards, closedJobs, readName, readQuery, rowToCompany, searchCompanies, summarize, MAX_RESULTS } from "./service";
+import { cachedBoards, closedJobs, readCompany, readName, readQuery, rowToCompany, searchCompanies, summarize, MAX_RESULTS } from "./service";
 import type { BoardResult, Job, Source } from "./types";
 
 const job = (id: string, title: string, postedAt: string | null = null): Job => ({
@@ -13,6 +13,14 @@ describe("reading what the browser sent", () => {
     expect(readName("")).toBeNull();
     expect(readName(null)).toBeNull();
     expect(readName("x".repeat(201))).toBeNull();
+  });
+
+  it("accepts a chosen company as source:board, or none for all of them, and nothing else", () => {
+    expect(readCompany("greenhouse:figma")).toBe("greenhouse:figma");
+    expect(readCompany(null)).toBe("");
+    expect(readCompany("")).toBe("");
+    expect(readCompany("workday:google")).toBeNull();
+    expect(readCompany("greenhouse:../admin")).toBeNull();
   });
 
   it("accepts a search of up to 100 characters, and none at all", () => {
@@ -96,6 +104,14 @@ describe("searchCompanies", () => {
     const result = await searchCompanies([companies[0]], "", async () => found(many));
     expect(result.jobs).toHaveLength(MAX_RESULTS);
     expect(result.total).toBe(MAX_RESULTS + 20);
+  });
+
+  it("searches only the chosen company, and still counts every company's open roles for the menu", async () => {
+    const getBoard = vi.fn(async (_: Source, token: string) => boards[token]);
+    const result = await searchCompanies(companies, "product manager", getBoard, "ashby:notion");
+    expect(result.jobs.map((j) => j.id)).toEqual(["n1"]);
+    expect(result.unavailable).toEqual([]);
+    expect(result.openRoles).toEqual({ "greenhouse:figma": 2, "ashby:notion": 1, "lever:palantir": null });
   });
 
   it("answers with nothing when no company is followed yet", async () => {

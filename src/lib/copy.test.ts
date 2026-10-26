@@ -8,7 +8,7 @@ import { planToday } from "./quota";
 import type { Entry, Goal } from "./types";
 import { AUTH_INTRO, clerkLocalization } from "./auth/copy";
 import { BACKUP_NOTE, LOAD_FAILED, SAVE_FAILED, SAVED_NOTE } from "./db/copy";
-import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine, SAVED_COPY, savedTab, savedWhen, addedToGoal, searchingLine, CHANGE_COPY } from "./jobs/copy";
+import { addedLine, addLabel, alreadyLine, companyList, foundLine, JOBS_COPY, lookingLine, moreLine, noMatchLine, removedLine, resultsLine, rolesCount, SEARCH_COPY, someDownLine, SAVED_COPY, savedTab, savedWhen, addedToGoal, allCompaniesOption, companyOption } from "./jobs/copy";
 
 const goal: Goal = {
   id: "g1", verb: "Send", title: "Send connection requests", unit: "connection requests", type: "by-date",
@@ -130,8 +130,12 @@ describe("house style: no full stops", () => {
     for (const line of linesIn(SAVED_COPY.loadFailed)) expect(line, line).not.toMatch(/!$/);
   });
 
-  it("the folded companies line reads naturally, with no full stop", () => {
-    expect(searchingLine(["Figma", "Notion", "Stripe"])).toBe("Searching Figma, Notion and Stripe");
-    for (const line of [searchingLine(["Figma"]), ...linesIn(CHANGE_COPY)]) expect(line, line).not.toMatch(FULL_STOP);
+  it("the company menu reads naturally, with no full stop", () => {
+    expect(allCompaniesOption(3)).toBe("All my companies (3)");
+    expect(companyOption("Figma", 140)).toBe("Figma · 140 open roles");
+    expect(companyOption("Palantir", null)).toBe("Palantir · didn't answer just now");
+    expect(companyOption("Stripe", undefined)).toBe("Stripe");
+    expect(resultsLine(7, "product manager", ["Figma"])).toBe('7 roles match "product manager" at Figma');
+    for (const line of [allCompaniesOption(1), companyOption("Figma", 1)]) expect(line, line).not.toMatch(FULL_STOP);
   });
 });

@@ -21,7 +21,6 @@ export const JOBS_COPY = {
   saveFailed: "That didn't save, check your connection and try again",
   loadFailed: { title: "Your companies didn't load", next: "Check your connection, then try again" },
   rolesUnknown: "didn't answer just now",
-  searchNext: "Searching their roles comes next",
 };
 
 export const rolesCount = (n: number) => (n === 1 ? "1 open role" : `${n} open roles`);
@@ -38,7 +37,12 @@ export const alreadyLine = (name: string) => `You already follow ${name}`;
 
 /** 6c: searching the followed companies' roles and saving them (agreed 2026-10-26). */
 export const SEARCH_COPY = {
-  label: "Search their roles",
+  label: "Job title",
+  companyLabel: "Company",
+  addOption: "+ Add a company…",
+  manageOption: "Manage companies…",
+  manageTitle: "Your companies",
+  done: "Done",
   placeholder: "Job title, like product manager",
   search: "Search",
   save: "Save",
@@ -61,7 +65,14 @@ export const lookingLine = (names: string[]) => `Looking through ${companyList(n
 
 export function resultsLine(total: number, query: string, names: string[]): string {
   const roles = total === 1 ? "1 role" : `${total} roles`;
-  return query ? `${roles} match "${query}"` : `${roles} at ${companyList(names)}, newest first`;
+  return query ? `${roles} match "${query}" at ${companyList(names)}` : `${roles} at ${companyList(names)}, newest first`;
+}
+
+/** The company menu (Jobs search, user 2026-10-26): all of them, each one with its open roles, then add and manage. */
+export const allCompaniesOption = (count: number) => `All my companies (${count})`;
+export function companyOption(name: string, openRoles: number | null | undefined): string {
+  if (openRoles === undefined) return name;
+  return `${name} · ${openRoles === null ? JOBS_COPY.rolesUnknown : rolesCount(openRoles)}`;
 }
 
 export const moreLine = (shown: number, total: number) => `Showing the newest ${shown} of ${total}, add a word to narrow it`;
@@ -91,8 +102,3 @@ export const SAVED_COPY = {
 export const savedTab = (count: number) => `Saved ${count}`;
 export const savedWhen = (status: "saved" | "applied", ago: string | null) => (ago ? `${status} ${ago}` : status);
 export const addedToGoal = (goalTitle: string) => `Added 1 to "${goalTitle}"! One more fish for Titi`;
-
-/** On a phone the companies fold into one line above the search (user, 2026-10-26: with many roles, scrolling down to
- *  the companies was hard). */
-export const searchingLine = (names: string[]) => `Searching ${companyList(names)}`;
-export const CHANGE_COPY = { open: "Change", close: "Done" };

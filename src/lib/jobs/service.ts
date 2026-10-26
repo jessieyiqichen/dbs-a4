@@ -50,6 +50,15 @@ export function readQuery(raw: string | null): string | null {
   return query.length <= MAX_QUERY ? query : null;
 }
 
+const COMPANY_KEY = /^(greenhouse|ashby|lever):[a-z0-9-]{1,64}$/;
+
+/** The company chosen in the search's menu, as "source:board"; "" for all of them; null when it isn't one. */
+export function readCompany(raw: string | null): string | null {
+  const key = raw?.trim() ?? "";
+  if (key === "") return "";
+  return COMPANY_KEY.test(key) ? key : null;
+}
+
 /** A followed company read from the database, checked again before its board name goes into an address. */
 export function rowToCompany(row: unknown): Company | null {
   if (typeof row !== "object" || row === null) return null;
@@ -79,11 +88,13 @@ export function cachedBoards(fetchBoard: BoardGetter, cache = createCache<BoardR
 
 const newestFirst = (a: Job, b: Job) => (b.postedAt ?? "").localeCompare(a.postedAt ?? "");
 
-/** Roles whose title holds every word of the search, from every followed company, newest first. */
-export async function searchCompanies(companies: Company[], query: string, getBoard: BoardGetter): Promise<SearchResult> {
+/** Roles whose title holds every word of the search, newest first: from every followed company, or only the chosen
+ *  one ("source:board"). Every company's open roles are counted either way, for the company menu (cached boards). */
+export async function searchCompanies(companies: Company[], query: string, getBoard: BoardGetter, only = ""): Promise<SearchResult> {
   const results = await Promise.all(companies.map((c) => getBoard(c.source, c.board, c.name)));
-  const jobs = results.flatMap((r) => (r.kind === "found" ? matchJobs(r.jobs, query) : [])).sort(newestFirst);
-  const unavailable = companies.filter((_, i) => results[i].kind !== "found").map((c) => c.name);
+  const searched = (i: number) => only === "" || companyKey(companies[i]) === only;
+  const jobs = results.flatMap((r, i) => (r.kind === "found" && searched(i) ? matchJobs(r.jobs, query) : [])).sort(newestFirst);
+  const unavailable = companies.filter((_, i) => searched(i) && results[i].kind !== "found").map((c) => c.name);
   const openRoles = Object.fromEntries(companies.map((c, i) => {
     const result = results[i];
     return [companyKey(c), result.kind === "found" ? result.jobs.length : null];
