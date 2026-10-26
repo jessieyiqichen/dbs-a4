@@ -13,6 +13,7 @@ import type { Removed } from "@/lib/goals";
 import { planToday } from "@/lib/quota";
 import { stashRemoved, useRemoved, useStore } from "@/lib/store";
 import { useDesktop } from "@/lib/useDesktop";
+import { AccountSection } from "./AccountSection";
 import { BackupSection } from "./BackupSection";
 import { GoalCard } from "./GoalCard";
 
@@ -98,7 +99,7 @@ export function GoalsScreen({ selected, fromToday = false }: Props) {
       )}
     </>
   );
-  // Settings, apart from the goals and under them: when to nudge, and the backup, as two rows of one kind (user,
+  // Settings, apart from the goals and under them: when to nudge, the backup and the account, as rows of one kind (user,
   // 2026-10-19: a link beside a big card did not read as one set). On a desktop they sit at the foot of the list column, level
   // with the goal's own actions at the foot of the right one (user, 2026-10-19: the two sides must line up).
   const settings = (
@@ -113,6 +114,7 @@ export function GoalsScreen({ selected, fromToday = false }: Props) {
         </span>
       </Link>
       <BackupSection data={data} />
+      <AccountSection />
     </div>
   );
   const toast = (
