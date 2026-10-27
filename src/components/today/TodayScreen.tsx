@@ -9,6 +9,7 @@ import {
   endSession,
   markVisited,
   removeEntry,
+  resumeGoal,
   updateSettings,
 } from "@/lib/actions";
 import { toISODate } from "@/lib/dates";
@@ -321,6 +322,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
             }
             onStart={() => begin(first.goal)}
             onStartNext={() => next && begin(next)}
+            onResume={() => resumeGoal(first.goal.id, today)}
             cheer={undoable !== null}
             inSession={
               data.session?.goalId === first.goal.id &&

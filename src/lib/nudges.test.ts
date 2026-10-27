@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { calendarLine, levelFor, nudgeLine, showNudgePrompt, sleepTalk } from "./nudges";
-import { planToday } from "./quota";
+import { breakBack, breakTitle, calendarLine, levelFor, nudgeLine, showNudgePrompt, sleepTalk } from "./nudges";
+import { breakOn, planToday } from "./quota";
 import type { Entry, Goal } from "./types";
 
 const goal: Goal = {
@@ -48,6 +48,12 @@ describe("nudgeLine", () => {
   it("celebrates a finished day", () => {
     const plan = planToday(goal, [entry(today, 11)], today);
     expect(nudgeLine(goal, plan, today, 21)).not.toMatch(/zero|late/i);
+  });
+
+  it("on a break, Titi naps too without repeating the date the sentence above her already says", () => {
+    const resting = { ...goal, pauses: [{ from: "2026-10-16", to: "2026-10-30" }] };
+    const line = nudgeLine(resting, planToday(resting, [], today), today, 9);
+    expect(line).toBe("Titi is napping too, see you then");
   });
 
   it("never uses shaming words", () => {
@@ -104,5 +110,19 @@ describe("sleepTalk: what Titi mumbles while she naps before you start", () => {
   });
   it("keeps the house style: no full stop, no tilde", () => {
     for (const level of ["gentle", "firmer", "last-call"] as const) expect(sleepTalk(level)).not.toMatch(/[.~]$/);
+  });
+});
+
+describe("a goal on a break (A3 review: a break needs a clearer signal)", () => {
+  const resting = { ...goal, pauses: [{ from: "2026-10-20", to: "2026-10-30" }] };
+
+  it("finds the break that covers a day, and none outside it", () => {
+    expect(breakOn(resting, "2026-10-25")).toEqual({ from: "2026-10-20", to: "2026-10-30" });
+    expect(breakOn(resting, "2026-10-31")).toBeUndefined();
+  });
+
+  it("says until when on Today, and when it's back on the goal's card", () => {
+    expect(breakTitle("2026-10-30")).toBe("On a break until Oct 30");
+    expect(breakBack("2026-10-30")).toBe("Back Oct 30");
   });
 });

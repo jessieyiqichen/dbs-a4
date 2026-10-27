@@ -43,16 +43,20 @@ function pick(lines: string[], goal: Goal, today: string): string {
   return lines[(daysBetween("2026-01-01", today) + seed) % lines.length];
 }
 
+/** A goal on a break, on Today: the sentence says until when, so it never reads as "done" (A3 review, 2026-10-26). */
+export const breakTitle = (to: string) => `On a break until ${formatShortDate(to)}`;
+/** The same break on the goal's card in the Goals list. */
+export const breakBack = (to: string) => `Back ${formatShortDate(to)}`;
+
 export function nudgeLine(goal: Goal, plan: TodayPlan, today: string, hour: number): string {
   switch (plan.status) {
     case "complete":
       return `You did it, ${formatCount(goal.target, goal.unit)}!`;
     case "deadline-passed":
       return "The date passed, pick a new one and keep going!";
-    case "paused": {
-      const pause = goal.pauses.find((p) => p.from <= today && today <= p.to);
-      return pause ? `Paused until ${formatShortDate(pause.to)}, Titi is napping too` : "Paused, Titi is napping too";
-    }
+    // The sentence under Titi already says until when (A3 review: a break needs a clearer signal)
+    case "paused":
+      return "Titi is napping too, see you then";
     case "done":
       return pick(DONE, goal, today);
     case "started":
