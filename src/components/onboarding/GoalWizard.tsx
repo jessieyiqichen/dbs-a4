@@ -156,12 +156,12 @@ function Result({
         >
           {line}
         </p>
-        {/* Today's fish, still to earn: what you are about to fill, before you start (user, 2026-10-19). Not on a short
-            phone, where the bar would cover too much of the choices */}
+        {/* Today's fish, still to earn: what you are about to fill, before you start (user, 2026-10-19). Not on a short or
+            compact phone, where the bar would cover too much of the choices */}
         {r.goal && r.perDay && (
           <div
             aria-hidden="true"
-            className="flex items-center gap-1 short:hidden"
+            className="flex items-center gap-1 short:hidden compact:hidden"
           >
             {Array.from(
               { length: Math.min(r.perDay, FISH_PREVIEW) },

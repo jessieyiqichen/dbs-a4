@@ -22,7 +22,7 @@ function useHour(): number {
 /** The window (art generated with GPT) as a short banner: the sky says what time it is, nothing is drawn over it. */
 function Window({ time, corner, className = "" }: { time: TimeOfDay; corner?: ReactNode; className?: string }) {
   return (
-    <div className={`relative aspect-[1040/457] w-full overflow-hidden rounded-3xl bg-wash short:aspect-[1040/240] ${className}`}>
+    <div className={`relative aspect-[1040/457] w-full overflow-hidden rounded-3xl bg-wash short:aspect-[1040/240] compact:aspect-[1040/400] ${className}`}>
       {TIMES.map((t) => (
         // eslint-disable-next-line @next/next/no-img-element -- three paintings cross-fade; next/image would reload on each swap
         <img key={t} src={`/cat/window-${t}.webp`} alt="" aria-hidden="true" className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 motion-reduce:transition-none ${t === time ? "opacity-100" : "opacity-0"}`} />
@@ -99,9 +99,9 @@ export function Room({ bowls, cat, corner, say = null, children }: Props) {
         {/* Coming back, Titi says hello in a bubble beside her, so the greeting is hers and not one more grey line
             (user, 2026-10-19: the welcome was too quiet) */}
         <div className={`flex items-end justify-center lg:-mb-3 lg:mt-auto ${say ? "gap-1" : ""}`}>
-          <div className={`relative flex flex-col items-center ${say ? "w-44 shrink-0 short:w-28 lg:w-64" : "mx-auto w-52 short:w-32 lg:w-72"}`}>
-            <span aria-hidden="true" className={`clay absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-sun [--lip:#e9cf7e] ${say ? "h-10 w-40 short:h-6 short:w-24 lg:bottom-3 lg:h-11 lg:w-52" : "h-10 w-48 short:h-6 short:w-28 lg:bottom-3 lg:h-12 lg:w-60"}`} />
-            <CatArt key={cat.key} mood={cat.mood} effect={cat.effect} sun={false} className={`relative ${say ? "w-40 short:w-20 lg:w-60" : "w-40 short:w-20 lg:w-56"}`} />
+          <div className={`relative flex flex-col items-center ${say ? "w-44 shrink-0 short:w-28 compact:w-36 lg:w-64" : "mx-auto w-52 short:w-32 compact:w-40 lg:w-72"}`}>
+            <span aria-hidden="true" className={`clay absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-sun [--lip:#e9cf7e] ${say ? "h-10 w-40 short:h-6 short:w-24 compact:w-28 lg:bottom-3 lg:h-11 lg:w-52" : "h-10 w-48 short:h-6 short:w-28 compact:w-32 lg:bottom-3 lg:h-12 lg:w-60"}`} />
+            <CatArt key={cat.key} mood={cat.mood} effect={cat.effect} sun={false} className={`relative ${say ? "w-40 short:w-20 compact:w-32 lg:w-60" : "w-40 short:w-20 compact:w-32 lg:w-56"}`} />
           </div>
           {say && (
             <p className="flat badge-in mb-12 max-w-44 rounded-2xl rounded-bl-sm bg-surface px-4 py-3 font-display text-lg font-semibold leading-snug text-ink short:mb-8 short:text-base lg:mb-24 lg:max-w-60 lg:text-2xl" style={{ ["--delay" as string]: "0.3s" }}>
