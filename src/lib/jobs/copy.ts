@@ -45,6 +45,8 @@ export const SEARCH_COPY = {
   addLink: "+ Add company",
   addTitle: "Add a company",
   nameLabel: "Company name",
+  loadingMore: "Loading more…",
+  moreFailed: "More roles didn't load, try again",
   manageOption: "Manage companies…",
   manageTitle: "Your companies",
   done: "Done",
@@ -80,7 +82,8 @@ export function companyOption(name: string, openRoles: number | null | undefined
   return `${name} · ${openRoles === null ? JOBS_COPY.rolesUnknown : rolesCount(openRoles)}`;
 }
 
-export const moreLine = (shown: number, total: number) => `Showing the newest ${shown} of ${total}, add a word to narrow it`;
+export const moreLine = (shown: number, total: number) => `Showing ${shown} of ${total}`;
+export const showMoreLabel = (remaining: number, page: number) => `Show ${Math.min(remaining, page)} more`;
 export const noMatchLine = (query: string) => `No roles match "${query}" at your companies right now, try a shorter title like "designer"`;
 export const someDownLine = (names: string[]) => `${companyList(names)} didn't answer, showing the rest`;
 

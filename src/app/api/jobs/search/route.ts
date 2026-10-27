@@ -1,10 +1,10 @@
 import { serverDbForRequest } from "@/lib/db/server";
 import { getBoard, limits, tooMany } from "@/lib/jobs/server";
 import { MAX_COMPANIES } from "@/lib/jobs/companies";
-import { companyKey, readCompany, readQuery, rowToCompany, searchCompanies, type Company } from "@/lib/jobs/service";
+import { companyKey, readCompany, readFrom, readQuery, rowToCompany, searchCompanies, type Company } from "@/lib/jobs/service";
 
-/** GET /api/jobs/search?q=product+manager&company=greenhouse:figma: roles matching the search at every company the
- *  signed-in person follows, or only the one chosen in the company menu (it must be one they follow).
+/** GET /api/jobs/search?q=product+manager&company=greenhouse:figma&from=20: a page of 20 roles matching the search at
+ *  every company the signed-in person follows, or only the one chosen in the company menu (it must be one they follow).
  *  The list of companies comes from their own rows in Supabase (read with their token, so RLS applies), not from the
  *  browser, so a request can never make the server fetch boards the person doesn't follow. */
 export async function GET(request: Request) {
@@ -16,6 +16,8 @@ export async function GET(request: Request) {
   if (query === null) return Response.json({ error: "Keep the search under 100 characters" }, { status: 400 });
   const only = readCompany(new URL(request.url).searchParams.get("company"));
   if (only === null) return Response.json({ error: "Pick one of your companies" }, { status: 400 });
+  const from = readFrom(new URL(request.url).searchParams.get("from"));
+  if (from === null) return Response.json({ error: "Search again to see more roles" }, { status: 400 });
 
   const { data, error } = await db.from("companies").select("source, board_token, name").order("added_at");
   if (error) {
@@ -28,5 +30,5 @@ export async function GET(request: Request) {
   if (only && !companies.some((c) => companyKey(c) === only)) {
     return Response.json({ error: "Pick one of your companies" }, { status: 400 });
   }
-  return Response.json(await searchCompanies(companies, query, getBoard, only));
+  return Response.json(await searchCompanies(companies, query, getBoard, only, from));
 }

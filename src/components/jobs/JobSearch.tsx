@@ -6,10 +6,10 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Field, Select, TextInput } from "@/components/ui/Field";
 import type { FollowedCompany } from "@/lib/jobs/companies";
 import {
-  allCompaniesOption, companyOption, lookingLine, moreLine, noMatchLine, resultsLine, SEARCH_COPY, someDownLine,
+  allCompaniesOption, companyOption, lookingLine, moreLine, noMatchLine, resultsLine, SEARCH_COPY, showMoreLabel, someDownLine,
 } from "@/lib/jobs/copy";
 import { jobKey, searchRoles, type SearchOutcome } from "@/lib/jobs/saved";
-import { companyKey, type Company } from "@/lib/jobs/service";
+import { companyKey, PAGE_SIZE, type Company } from "@/lib/jobs/service";
 import type { Job } from "@/lib/jobs/types";
 import { AddCompany } from "./AddCompany";
 import { CompanyList } from "./CompanyList";
@@ -46,6 +46,11 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
   // Each answer remembers which request it belongs to, so "loading" is simply "no answer for this request yet"
   const requestKey = `${companies.map((c) => c.id).join(",")}|${submitted}|${only}|${attempt}`;
   const [answer, setAnswer] = useState<{ key: string; outcome: SearchOutcome } | null>(null);
+  // "Show 20 more" (user, 2026-10-26): the pages after the first, kept with the request they belong to, so a new search
+  // starts again from 20
+  const [more, setMore] = useState<{ key: string; jobs: Job[]; loading: boolean; error?: string }>({ key: "", jobs: [], loading: false });
+  const listRef = useRef<HTMLUListElement>(null);
+  const focusFrom = useRef<number | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -64,6 +69,28 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
     const box = panelRef.current;
     if (panel && box) (box.querySelector<HTMLElement>("input") ?? box.querySelector<HTMLElement>("li button") ?? box.querySelector<HTMLElement>("button"))?.focus();
   }, [panel]);
+
+  // After a page arrives, the focus moves to its first role, so a keyboard user carries on from there
+  const extraCount = more.key === requestKey ? more.jobs.length : 0;
+  useEffect(() => {
+    const from = focusFrom.current;
+    if (from === null) return;
+    focusFrom.current = null;
+    listRef.current?.children[from]?.querySelector<HTMLElement>("button, a")?.focus();
+  }, [extraCount]);
+
+  async function showMore(from: number) {
+    const key = requestKey;
+    setMore((m) => ({ key, jobs: m.key === key ? m.jobs : [], loading: true }));
+    const next = await searchRoles(submitted, fetch, only, from);
+    if (next.kind === "result") focusFrom.current = from;
+    setMore((m) => {
+      if (m.key !== key) return m;
+      if (next.kind !== "result") return { ...m, loading: false, error: next.kind === "refused" ? next.message : SEARCH_COPY.moreFailed };
+      const seen = new Set(m.jobs.map(jobKey));
+      return { key, jobs: [...m.jobs, ...next.jobs.filter((j) => !seen.has(jobKey(j)))], loading: false };
+    });
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -91,6 +118,8 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
 
   const names = (only ? companies.filter((c) => companyKey(c) === only) : companies).map((c) => c.name);
   const outcome = answer?.key === requestKey ? answer.outcome : null;
+  const shown = outcome?.kind === "result" ? [...outcome.jobs, ...(more.key === requestKey ? more.jobs : [])] : [];
+  const paging = more.key === requestKey ? more : { loading: false, error: undefined };
   const allDown = outcome?.kind === "failed" || (outcome?.kind === "result" && outcome.unavailable.length > 0 && outcome.unavailable.length === names.length);
   return (
     <section className="flex flex-col gap-4">
@@ -154,12 +183,21 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
       {allDown && (
         <div><Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>{SEARCH_COPY.tryAgain}</Button></div>
       )}
-      {outcome?.kind === "result" && outcome.jobs.length > 0 && (
-        <ul className="flex flex-col">
-          {outcome.jobs.map((job) => (
+      {shown.length > 0 && (
+        <ul ref={listRef} className="flex flex-col">
+          {shown.map((job) => (
             <JobRow key={jobKey(job)} job={job} saved={saved.has(jobKey(job))} onSave={onSave} />
           ))}
         </ul>
+      )}
+      {outcome?.kind === "result" && outcome.total > shown.length && (
+        <div className="flex flex-col items-center gap-3 pb-4">
+          <p role="status" className="font-bold text-muted">{moreLine(shown.length, outcome.total)}</p>
+          {paging.error && <p role="alert" className="font-semibold text-danger">{paging.error}</p>}
+          <Button variant="secondary" disabled={paging.loading} onClick={() => void showMore(shown.length)}>
+            {paging.loading ? SEARCH_COPY.loadingMore : showMoreLabel(outcome.total - shown.length, PAGE_SIZE)}
+          </Button>
+        </div>
       )}
     </section>
   );
@@ -174,7 +212,6 @@ function ResultSummary({ outcome, query, names }: { outcome: Extract<SearchOutco
       {outcome.total === 0
         ? <p className="text-ink">{query ? noMatchLine(query) : resultsLine(0, "", names)}</p>
         : <p className="text-ink">{resultsLine(outcome.total, query, names)}</p>}
-      {outcome.total > outcome.jobs.length && <p className="text-muted">{moreLine(outcome.jobs.length, outcome.total)}</p>}
     </>
   );
 }

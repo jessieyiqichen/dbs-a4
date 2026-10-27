@@ -32,9 +32,9 @@ function isJob(v: unknown): v is Job {
 
 /** Asks our server for matching roles, at every followed company or the chosen one ("source:board"). Each job is
  *  checked before it is shown; only https links are kept. */
-export async function searchRoles(query: string, fetcher: Fetcher = fetch, company = ""): Promise<SearchOutcome> {
+export async function searchRoles(query: string, fetcher: Fetcher = fetch, company = "", from = 0): Promise<SearchOutcome> {
   try {
-    const params = new URLSearchParams({ q: query, ...(company ? { company } : {}) });
+    const params = new URLSearchParams({ q: query, ...(company ? { company } : {}), ...(from > 0 ? { from: String(from) } : {}) });
     const response = await fetcher(`/api/jobs/search?${params}`);
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     // Refused (400) or too many at once (429): the server's own line says what to do next
