@@ -141,7 +141,10 @@ export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, no
           {/* Both lined up with the fields, under their labels */}
           <Button variant="secondary" aria-label={SEARCH_COPY.companiesButton} aria-haspopup="dialog" onClick={() => onCompaniesOpen(true)}
             className="min-h-12 w-12 shrink-0 lg:mt-[2.125rem]">
-            <span aria-hidden="true" className="text-2xl leading-none">+</span>
+            {/* Drawn, not typed: the font's "+" sits below the middle of its line */}
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M10 4v12M4 10h12" />
+            </svg>
           </Button>
           <Button type="submit" className="min-h-12 shrink-0 lg:mt-[2.125rem]">{SEARCH_COPY.search}</Button>
         </div>
