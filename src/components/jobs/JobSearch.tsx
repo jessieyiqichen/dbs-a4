@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Field, Select, TextInput } from "@/components/ui/Field";
@@ -23,9 +23,12 @@ const MANAGE = "manage";
 interface JobSearchProps {
   companies: FollowedCompany[];
   saved: Set<string>;
-  /** The add dialog, opened from "+ Add company" beside the Search | Saved switch or from the company menu. */
-  adding: boolean;
-  onAdding: (open: boolean) => void;
+  /** The "Your companies" dialog (add and remove), opened from the + beside the company menu or from the menu itself.
+   *  Its state lives on the Jobs page, so the page's toast (Remove, with Undo) can show inside the dialog while it is open. */
+  companiesOpen: boolean;
+  onCompaniesOpen: (open: boolean) => void;
+  /** The page's toast, shown inside the dialog while it is open: the page behind a modal can't be clicked. */
+  notice: ReactNode;
   onSave: (job: Job) => Promise<boolean>;
   onAdd: (company: Company) => Promise<"followed" | "already" | "limit" | "failed">;
   onRemove: (company: FollowedCompany) => void;
@@ -33,18 +36,17 @@ interface JobSearchProps {
 
 /** The Jobs search (user, 2026-10-26): one card with a job title, a company menu and Search, in one row on a desktop
  *  and two on a phone. The menu is the browser's own (keyboard, screen readers and phones' pickers come with it): all
- *  companies, each one with its open roles, then "+ Add a company…" (the add dialog) and "Manage companies…" (a panel
- *  under the card). Before anything is typed it shows the newest roles, so people can browse; 20 a page, with
- *  Previous and Next under the list (user, 2026-10-26). */
-export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, onRemove }: JobSearchProps) {
+ *  companies, each one with its open roles, then "+ Add a company…" and "Manage companies…". Beside the menu, a + opens
+ *  "Your companies", one dialog to add and remove them (user, 2026-10-26: adding should be seen without opening the
+ *  menu, and managing shouldn't be buried in it). Before anything is typed it shows the newest roles, so people can
+ *  browse; 20 a page, with Previous and Next under the list. */
+export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, notice, onSave, onAdd, onRemove }: JobSearchProps) {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [chosen, setChosen] = useState("");
-  const [managing, setManaging] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [attempt, setAttempt] = useState(0);
   const [openRoles, setOpenRoles] = useState<Record<string, number | null>>({});
-  const panelRef = useRef<HTMLElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const turnedPage = useRef(false);
   // A company that was removed is no longer a choice: back to all of them
@@ -69,12 +71,6 @@ export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, o
     };
   }, [requestKey, submitted, only, page]);
 
-  // Managing opens a panel under the card, which takes the focus (the first Remove), so keyboard users land in it
-  useEffect(() => {
-    const box = panelRef.current;
-    if (managing && box) (box.querySelector<HTMLElement>("li button") ?? box.querySelector<HTMLElement>("button"))?.focus();
-  }, [managing]);
-
   const outcome = answer?.key === requestKey ? answer.outcome : null;
   // A new page starts at the top of the list, and the focus goes there too, so the next Tab is its first role
   useEffect(() => {
@@ -97,11 +93,10 @@ export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, o
     setSubmitted(trimmed);
   }
 
-  // Choosing a company searches it right away; the two actions open the add dialog or the panel, and leave the choice
+  // Choosing a company searches it right away; the two actions open "Your companies" and leave the choice as it was
   function choose(event: ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
-    if (value === ADD) return onAdding(true);
-    if (value === MANAGE) return setManaging(true);
+    if (value === ADD || value === MANAGE) return onCompaniesOpen(true);
     setChosen(value === ALL ? "" : value);
   }
 
@@ -109,7 +104,7 @@ export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, o
     const result = await onAdd(company);
     if (result === "followed") {
       setChosen(companyKey(company));
-      onAdding(false);
+      onCompaniesOpen(false);
     }
     return result;
   }
@@ -132,7 +127,7 @@ export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, o
             <Field id="role-company" label={SEARCH_COPY.companyLabel}>
               {(control) => (
                 <Select {...control} value={only || ALL} onChange={choose}>
-                  <option value={ALL}>{allCompaniesOption(companies.length)}</option>
+                  <option value={ALL}>{allCompaniesOption}</option>
                   {companies.map((c) => (
                     <option key={c.id} value={companyKey(c)}>{companyOption(c.name, openRoles[companyKey(c)])}</option>
                   ))}
@@ -143,26 +138,25 @@ export function JobSearch({ companies, saved, adding, onAdding, onSave, onAdd, o
               )}
             </Field>
           </div>
-          {/* Lined up with the fields, under their labels */}
+          {/* Both lined up with the fields, under their labels */}
+          <Button variant="secondary" aria-label={SEARCH_COPY.companiesButton} aria-haspopup="dialog" onClick={() => onCompaniesOpen(true)}
+            className="min-h-12 w-12 shrink-0 lg:mt-[2.125rem]">
+            <span aria-hidden="true" className="text-2xl leading-none">+</span>
+          </Button>
           <Button type="submit" className="min-h-12 shrink-0 lg:mt-[2.125rem]">{SEARCH_COPY.search}</Button>
         </div>
       </form>
 
-      {/* Adding opens over the page, not as a new part under the card (user, 2026-10-26) */}
-      <Dialog open={adding} title={SEARCH_COPY.addTitle} closeLabel={SEARCH_COPY.done} onClose={() => onAdding(false)}>
-        <AddCompany followed={new Set(companies.map(companyKey))} prominent={false} nameLabel={SEARCH_COPY.nameLabel} onAdd={addAndChoose} />
-      </Dialog>
-
-      {managing && (
-        <section ref={panelRef} aria-label={SEARCH_COPY.manageTitle}
-          className="flex flex-col gap-4 border-b-2 border-wash-strong pb-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-xl font-semibold text-ink">{SEARCH_COPY.manageTitle}</h2>
-            <Button variant="ghost" className="ml-auto" onClick={() => setManaging(false)}>{SEARCH_COPY.done}</Button>
+      {/* Over the page, not as a new part under the card: add at the top, the followed companies with Remove below */}
+      <Dialog open={companiesOpen} title={SEARCH_COPY.manageTitle} closeLabel={SEARCH_COPY.done} onClose={() => onCompaniesOpen(false)}>
+        <div className="flex flex-col gap-4">
+          <AddCompany followed={new Set(companies.map(companyKey))} prominent={false} onAdd={addAndChoose} />
+          <div className="border-t-2 border-wash-strong">
+            <CompanyList companies={companies} openRoles={openRoles} onRemove={onRemove} />
           </div>
-          <CompanyList companies={companies} openRoles={openRoles} onRemove={onRemove} />
-        </section>
-      )}
+        </div>
+        {notice}
+      </Dialog>
 
       <div ref={resultsRef} tabIndex={-1} role="status" aria-live="polite" className="flex scroll-mt-4 flex-col gap-1 font-bold outline-none">
         {!outcome && <p className="text-muted">{lookingLine(names)}</p>}
