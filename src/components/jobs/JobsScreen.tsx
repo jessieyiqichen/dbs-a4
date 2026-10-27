@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Toast } from "@/components/ui/Toast";
 import type { FollowedCompany } from "@/lib/jobs/companies";
-import { addedLine, JOBS_COPY, removedLine, SAVED_COPY, savedTab } from "@/lib/jobs/copy";
+import { addedLine, JOBS_COPY, removedLine, SAVED_COPY, savedTab, SEARCH_COPY } from "@/lib/jobs/copy";
 import { savedKeys, retrySaved, saveFoundJob, useSavedJobs } from "@/lib/jobs/savedStore";
 import type { Company } from "@/lib/jobs/service";
 import { useStore } from "@/lib/store";
@@ -33,8 +33,9 @@ function LoadFailed({ title, next, onRetry }: { title: string; next: string; onR
   );
 }
 
-/** Search | Saved (user, 2026-10-26): one list at a time. The chosen one looks like a selected goal tab. */
-function ViewSwitch({ view, savedCount, onChange }: { view: View; savedCount: number | null; onChange: (v: View) => void }) {
+/** Search | Saved (user, 2026-10-26): one list at a time. The chosen one looks like a selected goal tab. With Search
+ *  showing, "+ Add company" sits at the end of the row, seen without opening the company menu and clear of the card. */
+function ViewSwitch({ view, savedCount, onChange, action }: { view: View; savedCount: number | null; onChange: (v: View) => void; action?: ReactNode }) {
   const option = (value: View, label: string) => (
     // "Show …" for screen readers: the search card has its own Search button, and two buttons with one name are a guess
     <Button variant="secondary" aria-pressed={view === value} aria-label={`Show ${label}`} onClick={() => onChange(value)}
@@ -43,10 +44,13 @@ function ViewSwitch({ view, savedCount, onChange }: { view: View; savedCount: nu
     </Button>
   );
   return (
-    <div role="group" aria-label="Show" className="flex gap-2 pt-4 lg:col-span-12 lg:pt-0">
-      {option("search", SAVED_COPY.tabSearch)}
-      {/* No count until the list has loaded, so it never reads "Saved 0" by mistake */}
-      {option("saved", savedCount === null ? SAVED_COPY.tabSaved : savedTab(savedCount))}
+    <div className="flex items-center gap-2 pt-4 lg:col-span-12 lg:pt-0">
+      <div role="group" aria-label="Show" className="flex gap-2">
+        {option("search", SAVED_COPY.tabSearch)}
+        {/* No count until the list has loaded, so it never reads "Saved 0" by mistake */}
+        {option("saved", savedCount === null ? SAVED_COPY.tabSaved : savedTab(savedCount))}
+      </div>
+      {action}
     </div>
   );
 }
@@ -61,6 +65,7 @@ export function JobsScreen() {
   const [notice, setNotice] = useState<Notice>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
   const closeNotice = useCallback(() => setNotice(null), []);
   const notify: Notify = useCallback((text, undo) => setNotice({ text, undo }), []);
 
@@ -111,7 +116,14 @@ export function JobsScreen() {
   return (
     <div className="flex flex-col gap-6 lg:max-w-4xl">
       <h1 className="sr-only">Jobs</h1>
-      {showSwitch && <ViewSwitch view={view} savedCount={saved.kind === "ready" ? savedJobs.length : null} onChange={setView} />}
+      {showSwitch && (
+        <ViewSwitch view={view} savedCount={saved.kind === "ready" ? savedJobs.length : null} onChange={setView}
+          action={companies.length > 0 && (
+            <Button variant="ghost" aria-haspopup="dialog" className="-mr-4 ml-auto whitespace-nowrap" onClick={() => setAdding(true)}>
+              {SEARCH_COPY.addLink}
+            </Button>
+          )} />
+      )}
       {error && <p role="alert" className="font-semibold text-danger">{error}</p>}
       {companies.length === 0 ? (
         <div className="flex flex-col gap-6 lg:max-w-xl">
@@ -120,7 +132,7 @@ export function JobsScreen() {
           <AddCompany followed={new Set()} prominent onAdd={addCompany} />
         </div>
       ) : (
-        <JobSearch companies={companies} saved={savedKeys(saved)} onSave={saveFoundJob} onAdd={addCompany} onRemove={(c) => void removeCompany(c)} />
+        <JobSearch companies={companies} saved={savedKeys(saved)} adding={adding} onAdding={setAdding} onSave={saveFoundJob} onAdd={addCompany} onRemove={(c) => void removeCompany(c)} />
       )}
       {toast}
     </div>

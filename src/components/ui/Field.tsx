@@ -11,26 +11,21 @@ interface FieldProps {
   label: string;
   hint?: string;
   error?: string;
-  /** A small action at the end of the label's line (e.g. "+ Add company"); it never changes the line's height. */
-  action?: ReactNode;
   /** Receives the id and aria attributes to spread onto the input. */
   children: (control: ControlProps) => ReactNode;
 }
 
 /** A label, an optional hint, the control, and an error that says what to do next. */
-export function Field({ id, label, hint, error, action, children }: FieldProps) {
+export function Field({ id, label, hint, error, children }: FieldProps) {
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-3">
-        <label htmlFor={id} className="font-semibold text-ink">
-          {label}
-        </label>
-        {action}
-      </div>
+      <label htmlFor={id} className="font-semibold text-ink">
+        {label}
+      </label>
       {hint && (
         <p id={hintId} className="text-sm text-muted">
           {hint}

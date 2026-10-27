@@ -8,7 +8,7 @@ import { SOURCES, type BoardResult, type Job, type Source } from "./types";
  *  company; the raw answer (up to 13.5 MB) is never kept (AGENTS.md). */
 export const BOARD_CACHE_MS = 10 * 60 * 1000;
 const BOARD_CACHE_SIZE = 200;
-/** One page of search results; the page asks for the next 20 with "Show 20 more" (user, 2026-10-26). */
+/** One page of search results; the page has Previous and Next under the list (user, 2026-10-26). */
 export const PAGE_SIZE = 20;
 /** No search has more roles than this, so a page can't start further on. */
 const MAX_FROM = 10_000;
