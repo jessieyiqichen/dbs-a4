@@ -330,7 +330,6 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
               // Not while the goal is on a break: "no nudges" means no nudge question either (first-run check 2)
               showPrompt && first.plan.status !== "paused" ? (
                 <NudgePrompt
-                  compact
                   times={reminderTimes}
                   today={today}
                   onActed={() => setPromptPinned(true)}

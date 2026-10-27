@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cachedBoards, closedJobs, readCompany, readName, readQuery, rowToCompany, searchCompanies, summarize, MAX_RESULTS } from "./service";
+import { cachedBoards, closedJobs, readCompany, readFrom, readName, readQuery, rowToCompany, searchCompanies, summarize, PAGE_SIZE } from "./service";
 import type { BoardResult, Job, Source } from "./types";
 
 const job = (id: string, title: string, postedAt: string | null = null): Job => ({
@@ -21,6 +21,16 @@ describe("reading what the browser sent", () => {
     expect(readCompany("")).toBe("");
     expect(readCompany("workday:google")).toBeNull();
     expect(readCompany("greenhouse:../admin")).toBeNull();
+  });
+
+  it("accepts where the next page starts as a whole number, 0 when missing, and nothing else", () => {
+    expect(readFrom(null)).toBe(0);
+    expect(readFrom("")).toBe(0);
+    expect(readFrom("20")).toBe(20);
+    expect(readFrom("-20")).toBeNull();
+    expect(readFrom("2.5")).toBeNull();
+    expect(readFrom("20abc")).toBeNull();
+    expect(readFrom("100000")).toBeNull();
   });
 
   it("accepts a search of up to 100 characters, and none at all", () => {
@@ -99,11 +109,20 @@ describe("searchCompanies", () => {
     expect((await searchCompanies(companies, "designer", getBoard)).unavailable).toEqual(["Palantir"]);
   });
 
-  it("sends at most a page of results, and says how many there were", async () => {
-    const many = Array.from({ length: MAX_RESULTS + 20 }, (_, i) => job(String(i), "Engineer"));
+  it("sends one page of 20 results, and says how many there were", async () => {
+    const many = Array.from({ length: 45 }, (_, i) => job(String(i), "Engineer"));
     const result = await searchCompanies([companies[0]], "", async () => found(many));
-    expect(result.jobs).toHaveLength(MAX_RESULTS);
-    expect(result.total).toBe(MAX_RESULTS + 20);
+    expect(PAGE_SIZE).toBe(20);
+    expect(result.jobs.map((j) => j.id)).toEqual(many.slice(0, 20).map((j) => j.id));
+    expect(result.total).toBe(45);
+  });
+
+  it("sends the next page from where the last one ended, and the rest at the end", async () => {
+    const many = Array.from({ length: 45 }, (_, i) => job(String(i), "Engineer"));
+    const getBoard = async () => found(many);
+    expect((await searchCompanies([companies[0]], "", getBoard, "", 20)).jobs.map((j) => j.id)).toEqual(many.slice(20, 40).map((j) => j.id));
+    expect((await searchCompanies([companies[0]], "", getBoard, "", 40)).jobs.map((j) => j.id)).toEqual(["40", "41", "42", "43", "44"]);
+    expect((await searchCompanies([companies[0]], "", getBoard, "", 60)).jobs).toEqual([]);
   });
 
   it("searches only the chosen company, and still counts every company's open roles for the menu", async () => {

@@ -8,8 +8,10 @@ import { SOURCES, type BoardResult, type Job, type Source } from "./types";
  *  company; the raw answer (up to 13.5 MB) is never kept (AGENTS.md). */
 export const BOARD_CACHE_MS = 10 * 60 * 1000;
 const BOARD_CACHE_SIZE = 200;
-/** One page of search results; the page says how many more there were. */
-export const MAX_RESULTS = 50;
+/** One page of search results; the page asks for the next 20 with "Show 20 more" (user, 2026-10-26). */
+export const PAGE_SIZE = 20;
+/** No search has more roles than this, so a page can't start further on. */
+const MAX_FROM = 10_000;
 const MAX_NAME = 200;
 const MAX_QUERY = 100;
 const TOKEN = /^[a-z0-9-]{1,64}$/;
@@ -48,6 +50,15 @@ export function readName(raw: string | null): string | null {
 export function readQuery(raw: string | null): string | null {
   const query = raw?.trim() ?? "";
   return query.length <= MAX_QUERY ? query : null;
+}
+
+/** Where the next page starts, as the browser sent it: a whole number, 0 when missing; null when it isn't one. */
+export function readFrom(raw: string | null): number | null {
+  const text = raw?.trim() ?? "";
+  if (text === "") return 0;
+  if (!/^\d{1,5}$/.test(text)) return null;
+  const from = Number(text);
+  return from <= MAX_FROM ? from : null;
 }
 
 const COMPANY_KEY = /^(greenhouse|ashby|lever):[a-z0-9-]{1,64}$/;
@@ -89,8 +100,9 @@ export function cachedBoards(fetchBoard: BoardGetter, cache = createCache<BoardR
 const newestFirst = (a: Job, b: Job) => (b.postedAt ?? "").localeCompare(a.postedAt ?? "");
 
 /** Roles whose title holds every word of the search, newest first: from every followed company, or only the chosen
- *  one ("source:board"). Every company's open roles are counted either way, for the company menu (cached boards). */
-export async function searchCompanies(companies: Company[], query: string, getBoard: BoardGetter, only = ""): Promise<SearchResult> {
+ *  one ("source:board"), one page of 20 starting at `from`. Every company's open roles are counted either way, for the
+ *  company menu (cached boards, so the next page doesn't ask the hiring systems again). */
+export async function searchCompanies(companies: Company[], query: string, getBoard: BoardGetter, only = "", from = 0): Promise<SearchResult> {
   const results = await Promise.all(companies.map((c) => getBoard(c.source, c.board, c.name)));
   const searched = (i: number) => only === "" || companyKey(companies[i]) === only;
   const jobs = results.flatMap((r, i) => (r.kind === "found" && searched(i) ? matchJobs(r.jobs, query) : [])).sort(newestFirst);
@@ -99,7 +111,7 @@ export async function searchCompanies(companies: Company[], query: string, getBo
     const result = results[i];
     return [companyKey(c), result.kind === "found" ? result.jobs.length : null];
   }));
-  return { jobs: jobs.slice(0, MAX_RESULTS), total: jobs.length, unavailable, openRoles };
+  return { jobs: jobs.slice(from, from + PAGE_SIZE), total: jobs.length, unavailable, openRoles };
 }
 
 export interface SavedRef {
