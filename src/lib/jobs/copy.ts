@@ -43,6 +43,8 @@ export const SEARCH_COPY = {
   companyLabel: "Company",
   addOption: "+ Add a company…",
   addLink: "+ Add company",
+  addTitle: "Add a company",
+  nameLabel: "Company name",
   manageOption: "Manage companies…",
   manageTitle: "Your companies",
   done: "Done",

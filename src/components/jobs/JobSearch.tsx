@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { Field, Select, TextInput } from "@/components/ui/Field";
 import type { FollowedCompany } from "@/lib/jobs/companies";
 import {
@@ -58,7 +59,7 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
     };
   }, [requestKey, submitted, only]);
 
-  // A panel opened from the menu takes the focus (the name field, or the first Remove), so keyboard users land in it
+  // Managing opens a panel under the card, which takes the focus (the first Remove), so keyboard users land in it
   useEffect(() => {
     const box = panelRef.current;
     if (panel && box) (box.querySelector<HTMLElement>("input") ?? box.querySelector<HTMLElement>("li button") ?? box.querySelector<HTMLElement>("button"))?.focus();
@@ -128,16 +129,19 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
         </div>
       </form>
 
-      {panel && (
-        <section ref={panelRef} aria-label={panel === ADD ? SEARCH_COPY.addOption : SEARCH_COPY.manageTitle}
+      {/* Adding opens over the page, not as a new part under the card (user, 2026-10-26) */}
+      <Dialog open={panel === ADD} title={SEARCH_COPY.addTitle} closeLabel={SEARCH_COPY.done} onClose={() => setPanel(null)}>
+        <AddCompany followed={new Set(companies.map(companyKey))} prominent={false} nameLabel={SEARCH_COPY.nameLabel} onAdd={addAndChoose} />
+      </Dialog>
+
+      {panel === MANAGE && (
+        <section ref={panelRef} aria-label={SEARCH_COPY.manageTitle}
           className="flex flex-col gap-4 border-b-2 border-wash-strong pb-6">
           <div className="flex items-center justify-between gap-3">
-            {panel === MANAGE && <h2 className="font-display text-xl font-semibold text-ink">{SEARCH_COPY.manageTitle}</h2>}
+            <h2 className="font-display text-xl font-semibold text-ink">{SEARCH_COPY.manageTitle}</h2>
             <Button variant="ghost" className="ml-auto" onClick={() => setPanel(null)}>{SEARCH_COPY.done}</Button>
           </div>
-          {panel === ADD
-            ? <AddCompany followed={new Set(companies.map(companyKey))} prominent={false} onAdd={addAndChoose} />
-            : <CompanyList companies={companies} openRoles={openRoles} onRemove={onRemove} />}
+          <CompanyList companies={companies} openRoles={openRoles} onRemove={onRemove} />
         </section>
       )}
 
