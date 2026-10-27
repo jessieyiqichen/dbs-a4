@@ -42,6 +42,7 @@ export const SEARCH_COPY = {
   label: "Job title",
   companyLabel: "Company",
   addOption: "+ Add a company…",
+  addLink: "+ Add company",
   manageOption: "Manage companies…",
   manageTitle: "Your companies",
   done: "Done",

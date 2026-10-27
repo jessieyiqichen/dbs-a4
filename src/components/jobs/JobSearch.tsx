@@ -104,7 +104,12 @@ export function JobSearch({ companies, saved, onSave, onAdd, onRemove }: JobSear
         </div>
         <div className="flex items-end gap-3 lg:contents">
           <div className="min-w-0 flex-1 lg:w-72 lg:flex-none">
-            <Field id="role-company" label={SEARCH_COPY.companyLabel}>
+            {/* Adding is also beside the label, so it is seen without opening the menu (user, 2026-10-26) */}
+            <Field id="role-company" label={SEARCH_COPY.companyLabel} action={
+              <Button variant="ghost" aria-expanded={panel === ADD} onClick={() => setPanel(ADD)} className="-my-2.5 -mr-4">
+                {SEARCH_COPY.addLink}
+              </Button>
+            }>
               {(control) => (
                 <Select {...control} value={only || ALL} onChange={choose}>
                   <option value={ALL}>{allCompaniesOption(companies.length)}</option>
