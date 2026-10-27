@@ -39,7 +39,7 @@ sequenceDiagram
         J-->>R: 139 jobs, 88 KB, 15 fields each
         R->>R: trim to 8 fields per job, keep 10 minutes for everyone
     end
-    R->>R: keep titles matching every word ("product", "manager"), newest first, one page of 20 ("Show 20 more" asks for the next)
+    R->>R: keep titles matching every word ("product", "manager"), newest first, one page of 20 (Next asks for the following 20)
     R-->>B: 200 JSON, about 3.6 KB: 7 jobs + how many roles each company has open
     B->>B: check each job (https links only)
     B-->>A: "7 roles match "product manager"", each with Save and View posting ↗
