@@ -4,7 +4,7 @@ A goal pusher for students in recruiting season. The tasks that matter but you k
 
 Design, Build, Ship · **Assignment 4 (Full Stack App)**, extended from Assignment 3. Classmates sign up, each person sees only their own goals, and the Jobs tab pulls open roles from the companies you're aiming for: save one, apply, tap "I applied", and Titi gets a fish.
 
-- **Live:** added at deploy (step 8) · Assignment 3 version: [dbs-a3.vercel.app](https://dbs-a3.vercel.app)
+- **Live:** [dbs-a4.vercel.app](https://dbs-a4.vercel.app) · Assignment 3 version: [dbs-a3.vercel.app](https://dbs-a3.vercel.app)
 - **One request, click to screen:** [docs/request-flow.md](docs/request-flow.md) (Search through the browser, our server, Clerk, Supabase and the job boards; Save straight to Supabase)
 - **Two-user test:** [e2e/two-users.spec.ts](e2e/two-users.spec.ts) · **Tables and row-level security:** [supabase/migrations/](supabase/migrations/)
 - **Reading guide to the agent's changes:** [docs/reading-guide.md](docs/reading-guide.md) (Chinese)
