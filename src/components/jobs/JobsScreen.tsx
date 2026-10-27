@@ -95,7 +95,8 @@ export function JobsScreen() {
 
   if (showSwitch && view === "saved") {
     return (
-      <div className="flex flex-col gap-6 lg:max-w-2xl">
+      // As wide as Search, so switching between them doesn't change the page's width
+      <div className="flex flex-col gap-6 lg:max-w-4xl">
         <h1 className="sr-only">Jobs</h1>
         <ViewSwitch view={view} savedCount={saved.kind === "ready" ? savedJobs.length : null} onChange={setView} />
         {saved.kind === "loading" && <p className="text-muted">Loading your saved jobs…</p>}

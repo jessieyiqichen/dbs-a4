@@ -78,10 +78,14 @@ function SavedRow({ job, closed, goals, rememberedGoalId, notify }: Omit<SavedLi
   }
 
   return (
-    <li className="flex flex-col gap-2 border-b-2 border-wash-strong py-4 last:border-b-0">
-      <p className="font-display text-lg font-semibold leading-snug text-ink">{job.title}</p>
-      <p className="text-sm font-bold text-muted">{details}</p>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    // On a desktop, one line per job: what it is on the left, the actions on the right (user, 2026-10-26: the narrow
+    // list left half the page empty). On a phone, the actions sit under the title as before
+    <li className="flex flex-col gap-2 border-b-2 border-wash-strong py-4 last:border-b-0 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-6">
+      <div className="flex min-w-0 flex-col gap-2 lg:gap-1">
+        <p className="font-display text-lg font-semibold leading-snug text-ink">{job.title}</p>
+        <p className="text-sm font-bold text-muted">{details}</p>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:justify-end lg:gap-4">
         <Button variant="secondary" onClick={tapApplied} disabled={busy || asking !== null} aria-pressed={applied}
           className={applied ? "bg-primary-soft [--lip:var(--color-lip)]" : ""}>
           {applied ? SAVED_COPY.applied : SAVED_COPY.iApplied}
@@ -97,7 +101,7 @@ function SavedRow({ job, closed, goals, rememberedGoalId, notify }: Omit<SavedLi
         <Button variant="ghost" onClick={() => void remove()} aria-label={`Remove ${job.title} at ${job.company}`}>{SAVED_COPY.remove}</Button>
       </div>
       {asking && (
-        <div className="mt-2 flex flex-col gap-3">
+        <div className="mt-2 flex flex-col gap-3 lg:col-span-2">
           <RadioGroup name={`goal-${job.id}`} legend={SAVED_COPY.countToward} value={picked}
             options={asking.map((g) => ({ value: g.id, label: g.title }))} onChange={setPicked} />
           <div className="flex flex-wrap gap-2">
