@@ -22,14 +22,12 @@ interface AddCompanyProps {
   followed: Set<string>;
   /** False once there are companies to search: Search is then the page's one green button, and Find and Add are white. */
   prominent: boolean;
-  /** The name field's label; in the add dialog it is "Company name", since the dialog's title already says "Add a company" */
-  nameLabel?: string;
   onAdd: (company: Company) => Promise<"followed" | "already" | "limit" | "failed">;
 }
 
 /** Type a name, see what was found, then Add: nothing is followed until the person has seen which company it is, so a
  *  different company with the same name is never added by surprise (AGENTS.md). */
-export function AddCompany({ followed, prominent, nameLabel = JOBS_COPY.addLabel, onAdd }: AddCompanyProps) {
+export function AddCompany({ followed, prominent, onAdd }: AddCompanyProps) {
   const [name, setName] = useState("");
   const [link, setLink] = useState("");
   const [step, setStep] = useState<Step>({ kind: "idle" });
@@ -84,7 +82,7 @@ export function AddCompany({ followed, prominent, nameLabel = JOBS_COPY.addLabel
   return (
     <section className="flex flex-col gap-4">
       <form onSubmit={submitName} className="flex flex-col gap-3" noValidate>
-        <Field id="company-name" label={nameLabel} error={error?.field === "name" ? error.text : undefined}>
+        <Field id="company-name" label={JOBS_COPY.addLabel} error={error?.field === "name" ? error.text : undefined}>
           {(control) => (
             <TextInput {...control} ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} placeholder={JOBS_COPY.addPlaceholder} autoComplete="organization" maxLength={200} />
           )}

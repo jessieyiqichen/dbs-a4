@@ -131,11 +131,11 @@ describe("house style: no full stops", () => {
   });
 
   it("the company menu reads naturally, with no full stop", () => {
-    expect(allCompaniesOption(3)).toBe("All my companies (3)");
+    expect(allCompaniesOption).toBe("All companies");
     expect(companyOption("Figma", 140)).toBe("Figma · 140 open roles");
     expect(companyOption("Palantir", null)).toBe("Palantir · didn't answer just now");
     expect(companyOption("Stripe", undefined)).toBe("Stripe");
     expect(resultsLine(7, "product manager", ["Figma"])).toBe('7 roles match "product manager" at Figma');
-    for (const line of [allCompaniesOption(1), companyOption("Figma", 1)]) expect(line, line).not.toMatch(FULL_STOP);
+    for (const line of [allCompaniesOption, companyOption("Figma", 1)]) expect(line, line).not.toMatch(FULL_STOP);
   });
 });

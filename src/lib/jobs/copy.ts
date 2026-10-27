@@ -42,9 +42,7 @@ export const SEARCH_COPY = {
   label: "Job title",
   companyLabel: "Company",
   addOption: "+ Add a company…",
-  addLink: "+ Add company",
-  addTitle: "Add a company",
-  nameLabel: "Company name",
+  companiesButton: "Add or remove companies",
   previous: "← Previous",
   next: "Next →",
   pagesLabel: "Pages",
@@ -77,7 +75,8 @@ export function resultsLine(total: number, query: string, names: string[]): stri
 }
 
 /** The company menu (Jobs search, user 2026-10-26): all of them, each one with its open roles, then add and manage. */
-export const allCompaniesOption = (count: number) => `All my companies (${count})`;
+/** No count: beside the + on a phone a longer line is cut off, and the line under the card already names them. */
+export const allCompaniesOption = "All companies";
 export function companyOption(name: string, openRoles: number | null | undefined): string {
   if (openRoles === undefined) return name;
   return `${name} · ${openRoles === null ? JOBS_COPY.rolesUnknown : rolesCount(openRoles)}`;
