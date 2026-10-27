@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { formatShortDate } from "@/lib/dates";
 import { formatCount } from "@/lib/format";
-import type { TodayPlan } from "@/lib/quota";
+import { breakBack } from "@/lib/nudges";
+import { breakOn, type TodayPlan } from "@/lib/quota";
 import type { Goal } from "@/lib/types";
 
 interface Props {
@@ -15,8 +16,8 @@ interface Props {
 }
 
 function line(goal: Goal, plan: TodayPlan, today: string): string {
-  const pause = goal.pauses.find((p) => p.from <= today && today <= p.to);
-  if (pause) return `Taking a break until ${formatShortDate(pause.to)}`;
+  const pause = breakOn(goal, today);
+  if (pause) return breakBack(pause.to);
   if (plan.status === "complete") return "Goal reached!";
   if (plan.status === "deadline-passed")
     return `${plan.doneTotal} of ${goal.target}, the date passed`;
@@ -27,7 +28,9 @@ function line(goal: Goal, plan: TodayPlan, today: string): string {
   return `${plan.doneTotal} of ${goal.target} by ${formatShortDate(goal.deadline ?? today)}`;
 }
 
-/** One goal in the list: the whole card opens its progress; edit, pause and delete live there. */
+/** One goal in the list: the whole card opens its progress; edit, pause and delete live there. A goal on a break sits
+ *  back on the page's own wash with an "On a break" tag and a faded bar, so it can't be taken for one in progress (A3
+ *  review, 2026-10-26: a break needs a clearer signal). */
 export function GoalCard({ goal, plan, today, selected = false }: Props) {
   const pct =
     goal.type === "by-date"
@@ -37,16 +40,25 @@ export function GoalCard({ goal, plan, today, selected = false }: Props) {
         )
       : null;
   const done = plan.status === "done" || plan.status === "complete";
+  const resting = plan.status === "paused";
+  const face = selected ? "bg-primary-soft [--lip:var(--color-lip)]" : resting ? "bg-wash hover:bg-wash-strong" : "bg-surface hover:bg-wash";
   return (
     <li>
       <Link
         href={`/goals/${goal.id}`}
         aria-current={selected ? "page" : undefined}
-        className={`clay clay-press flex flex-col gap-2 rounded-3xl px-5 py-4 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus ${selected ? "bg-primary-soft [--lip:var(--color-lip)]" : "bg-surface hover:bg-wash"}`}
+        className={`clay clay-press flex flex-col gap-2 rounded-3xl px-5 py-4 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-focus ${face}`}
       >
         <span className="flex items-center justify-between gap-3">
-          <span className="font-display text-lg font-semibold text-ink">
-            {goal.title}
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-display text-lg font-semibold text-ink">
+              {goal.title}
+            </span>
+            {resting && (
+              <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-extrabold text-ink">
+                On a break
+              </span>
+            )}
           </span>
           {!done && !selected && (
             <span aria-hidden="true" className="text-muted">
@@ -59,7 +71,7 @@ export function GoalCard({ goal, plan, today, selected = false }: Props) {
         </span>
         {pct !== null && (
           <span
-            className="h-2.5 w-full overflow-hidden rounded-full bg-wash-strong"
+            className={`h-2.5 w-full overflow-hidden rounded-full bg-wash-strong ${resting ? "opacity-50" : ""}`}
             role="progressbar"
             aria-label={`${goal.title}: ${pct}% of the way`}
             aria-valuemin={0}

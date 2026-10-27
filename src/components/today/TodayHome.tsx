@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ScreenHeading } from "@/components/ui/ScreenHeading";
-import { levelFor, nudgeLine, sleepTalk } from "@/lib/nudges";
+import { breakTitle, levelFor, nudgeLine, sleepTalk } from "@/lib/nudges";
 import { countOf, headline } from "@/lib/phrases";
-import type { TodayPlan } from "@/lib/quota";
+import { breakOn, type TodayPlan } from "@/lib/quota";
 import type { BowlDay } from "@/lib/scene";
 import type { Goal } from "@/lib/types";
 import type { CatEffect, CatMood } from "./CatArt";
@@ -34,6 +34,8 @@ interface Props {
   corner?: React.ReactNode;
   onStart: () => void;
   onStartNext: () => void;
+  /** Ends the goal's break today ("I'm back early"). */
+  onResume: () => void;
   /** A session for this goal was opened today, even if nothing is logged yet: the button says "Keep going". */
   inSession?: boolean;
   /** True right after a log: Titi hops. */
@@ -44,14 +46,17 @@ interface Props {
 
 type Status = TodayPlan["status"];
 
-function title(goal: Goal, plan: TodayPlan): string {
+function title(goal: Goal, plan: TodayPlan, today: string): string {
   switch (plan.status) {
     case "started":
       return `${plan.doneToday} done, ${plan.leftToday} to go!`;
     case "done":
       return "Done for today!";
-    case "paused":
-      return "Paused";
+    case "paused": {
+      // Until when, so a break never reads as "done" (A3 review, 2026-10-26)
+      const pause = breakOn(goal, today);
+      return pause ? breakTitle(pause.to) : "On a break";
+    }
     case "complete":
       return "Goal reached!";
     // Progress first, then the push to keep going: encouraging, not a verdict
@@ -202,11 +207,13 @@ function shortName(goal: Goal): string {
 function SentenceCard({
   goal,
   plan,
+  today,
   line,
   catchUp,
 }: {
   goal: Goal;
   plan: TodayPlan;
+  today: string;
   line: string | null;
   catchUp: string | null;
 }) {
@@ -217,7 +224,7 @@ function SentenceCard({
         id={`goal-${goal.id}`}
         className="font-display text-2xl font-bold leading-tight text-ink [text-wrap:balance] lg:text-5xl"
       >
-        {title(goal, plan)}
+        {title(goal, plan, today)}
       </ScreenHeading>
       {line && (
         <p className="mt-1 font-bold text-muted lg:mt-4 lg:text-lg">{line}</p>
@@ -247,6 +254,7 @@ function MainAction({
   next,
   onStart,
   onStartNext,
+  onResume,
   prompt,
   inSession = false,
 }: {
@@ -255,6 +263,7 @@ function MainAction({
   next: Goal | null;
   onStart: () => void;
   onStartNext: () => void;
+  onResume: () => void;
   prompt?: React.ReactNode;
   inSession?: boolean;
 }) {
@@ -286,10 +295,11 @@ function MainAction({
           Pick a new date
         </ButtonLink>
       )}
+      {/* Ends the break here, rather than sending people to Goals to find Resume */}
       {plan.status === "paused" && (
-        <ButtonLink href="/goals" variant="secondary" className="self-start">
-          Manage goals
-        </ButtonLink>
+        <Button variant="secondary" onClick={onResume} className="w-full">
+          I&apos;m back early
+        </Button>
       )}
       {/* Asked here, right under the button, as soon as one is logged: someone who does 2 of 5 and leaves is asked too
           (reviewer, user 2026-10-19), not only on the second celebration screen */}
@@ -317,6 +327,7 @@ export function TodayHome({
   corner,
   onStart,
   onStartNext,
+  onResume,
   cheer = false,
   prompt,
   inSession = false,
@@ -341,13 +352,14 @@ export function TodayHome({
     >
       <Room bowls={bowls} cat={cat} corner={corner} say={said}>
         <GoalTabs goals={goals} current={goal.id} onPick={onPick} />
-        <SentenceCard goal={goal} plan={plan} line={null} catchUp={catchUp} />
+        <SentenceCard goal={goal} plan={plan} today={today} line={null} catchUp={catchUp} />
         <MainAction
           goal={goal}
           plan={plan}
           next={next}
           onStart={onStart}
           onStartNext={onStartNext}
+          onResume={onResume}
           prompt={prompt}
           inSession={inSession}
         />

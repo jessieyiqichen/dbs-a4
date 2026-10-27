@@ -1,5 +1,5 @@
 import { addDays, daysBetween, eachDay } from "./dates";
-import type { DayStatus, Entry, Goal } from "./types";
+import type { DayStatus, Entry, Goal, Pause } from "./types";
 
 export interface TodayPlan {
   quota: number;
@@ -15,6 +15,11 @@ export interface TodayPlan {
 
 export function isPaused(goal: Goal, date: string): boolean {
   return goal.pauses.some((p) => p.from <= date && date <= p.to);
+}
+
+/** The break that covers this day, if any: Today and the goal's card say when it ends. */
+export function breakOn(goal: Goal, date: string): Pause | undefined {
+  return goal.pauses.find((p) => p.from <= date && date <= p.to);
 }
 
 function activeDays(goal: Goal, from: string, to: string): number {
