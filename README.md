@@ -84,7 +84,7 @@ flowchart TD
     I --> R{Today's number reached?}
     R -->|No| S
     R -->|Yes| D[Done for today!<br>streak and how far the goal has come]
-    D --> N[Nudge you tomorrow?<br>calendar file or notifications]
+    D --> N[Nudge you tomorrow?<br>a calendar file, in one row above the button]
     N --> CB([Come back tomorrow])
     CB --> W[Titi: Welcome back, 2 days in a row!]
     W --> T[Today: today's new number]
