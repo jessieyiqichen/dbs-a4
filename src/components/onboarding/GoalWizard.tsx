@@ -1,23 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CatArt, type CatMood } from "@/components/today/CatArt";
 import { Button } from "@/components/ui/Button";
-import { Field, TextInput } from "@/components/ui/Field";
 import { ScreenHeading } from "@/components/ui/ScreenHeading";
 import { addGoal } from "@/lib/actions";
 import { SAVED_NOTE } from "@/lib/db/copy";
-import { addDays, formatShortDate, toISODate } from "@/lib/dates";
+import { formatShortDate, toISODate } from "@/lib/dates";
 import { countOf, headline } from "@/lib/phrases";
-import {
-  FIRST_PICKS,
-  resolveSetup,
-  type Picks,
-  type Resolved,
-} from "@/lib/quickSetup";
+import { resolveSetup, toggleStarter, type Picks, type Resolved } from "@/lib/quickSetup";
 import { startGoal } from "@/lib/start";
 import { STARTERS } from "@/lib/starters";
 import { Pills } from "./Pills";
+import { BAR_VAR, firstMissing, scrollToField, SetupRows, type Set } from "./SetupRows";
 
 interface Props {
   /** The very first visit: Titi waves and introduces herself, and the button says "my first one". */
@@ -28,8 +23,6 @@ interface Props {
   onStarted?: () => void;
 }
 
-type Set = (p: Partial<Picks>) => void;
-
 const WHAT = [
   ...STARTERS.map((s) => ({ value: s.key, label: s.label })),
   {
@@ -39,27 +32,6 @@ const WHAT = [
   },
 ];
 
-/** On a phone the result bar is pinned over the foot of the screen; its height is kept here so the page can leave room
- *  for it and a field scrolled into view stops above it (reviewer, 2026-10-18: an error sat under the bar). */
-const BAR_VAR = "--setup-bar";
-const ROOM = "scroll-mb-[calc(var(--setup-bar,10rem)+1rem)] lg:scroll-mb-4";
-
-function scrollToField(el: Element | null) {
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  el?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
-}
-
-/** A field that appears after a choice (My own, Pick a date, Something else): it scrolls itself into view above the
- *  bar, while focus stays on the choice, so arrowing through the choices never pulls the keyboard out of them. */
-function Reveal({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => scrollToField(ref.current), []);
-  return (
-    <div ref={ref} data-field className={ROOM}>
-      {children}
-    </div>
-  );
-}
 /** How many of today's fish the first screen draws before it says "+N". */
 const FISH_PREVIEW = 8;
 const TIER_POSE: Record<string, CatMood> = {
@@ -68,11 +40,6 @@ const TIER_POSE: Record<string, CatMood> = {
   "2": "celebrate",
   own: "paw-tap",
 };
-const OFTEN = [
-  { value: "daily", label: "Every day" },
-  { value: "by-date", label: "A total by a date" },
-];
-
 /** Titi's question. The first visit does not move focus, so it starts at the skip link as usual. On a desktop Titi stands
  *  in the right column above today's number (user, 2026-10-19: the right side was too short), so here the question is
  *  the page's plain heading. */
@@ -106,16 +73,24 @@ function Hello({ firstVisit, pose }: { firstVisit: boolean; pose: CatMood }) {
   );
 }
 
+/** What the bar says: what to answer next, or today's number for each goal once every row is answered. */
+function resultLines(rs: Resolved[]): string[] {
+  if (rs.length === 0) return ["Pick what you've been putting off to see today's number"];
+  if (rs.some((r) => !r.goal || !r.perDay)) return ["Answer each row to see today's number"];
+  return rs.map((r) => `${headline(r.verb, r.perDay ?? 0, r.unit)} today`);
+}
+
 /** Today's number in one sentence and the one button, updating with every tap. On a phone it stays pinned to the foot
  *  of the screen, so the number and Start are on the first screen whatever is picked above; on a desktop it is the
- *  right-hand column, with the whole goal and the note on where it is saved under it. */
+ *  right-hand column, with the whole goal and the note on where it is saved under it. With several goals, one line
+ *  each. */
 function Result({
-  r,
+  rs,
   firstVisit,
   onStart,
   pose,
 }: {
-  r: Resolved;
+  rs: Resolved[];
   firstVisit: boolean;
   onStart: () => void;
   pose: CatMood;
@@ -134,11 +109,10 @@ function Result({
       root.style.removeProperty(BAR_VAR);
     };
   }, []);
-  const line =
-    r.goal && r.perDay
-      ? `${headline(r.verb, r.perDay, r.unit)} today`
-      : "Tell Titi a little more to see today's number";
-  const whole = r.goal
+  const lines = resultLines(rs);
+  // The fish preview and the whole goal only for one goal: for several, the lines already fill the bar
+  const r = rs.length === 1 ? rs[0] : null;
+  const whole = r?.goal
     ? `${countOf(r.goal.target, r.goal.unit)} ${r.goal.deadline ? `by ${formatShortDate(r.goal.deadline)}` : "every day"}`
     : null;
   return (
@@ -150,15 +124,12 @@ function Result({
         <div className="hidden lg:mb-2 lg:flex lg:justify-center">
           <CatArt key={pose} mood={pose} className="w-56" />
         </div>
-        <p
-          aria-live="polite"
-          className="font-display text-2xl font-bold leading-tight text-ink [text-wrap:balance] lg:text-4xl"
-        >
-          {line}
-        </p>
+        <div aria-live="polite" className={`flex flex-col gap-1 font-display font-bold leading-tight text-ink [text-wrap:balance] ${lines.length > 1 ? "text-xl lg:text-3xl" : "text-2xl lg:text-4xl"}`}>
+          {lines.map((line, i) => <p key={i}>{line}</p>)}
+        </div>
         {/* Today's fish, still to earn: what you are about to fill, before you start (user, 2026-10-19). Not on a short or
             compact phone, where the bar would cover too much of the choices */}
-        {r.goal && r.perDay && (
+        {r?.goal && r.perDay && (
           <div
             aria-hidden="true"
             className="flex items-center gap-1 short:hidden compact:hidden"
@@ -198,225 +169,64 @@ function Result({
   );
 }
 
-/** Where job applications are made: a few recruiting sites, or none; the session's "Open" button goes there. */
-function Where({ r, set }: { r: Resolved; set: Set }) {
-  const options = r.sites.map((x) => ({ value: x.key, label: x.label }));
-  return (
-    <Pills
-      name="site"
-      legend="Where do you apply?"
-      options={options}
-      value={r.site}
-      onChange={(v) => set({ site: v })}
-    />
-  );
-}
-
-/** The goal's own words and how often, when it is something else. */
-function OwnGoal({
-  picks,
-  set,
-  error,
-}: {
-  picks: Picks;
-  set: Set;
-  error?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      <Reveal>
-        <Field
-          id="setup-what"
-          label="What will you do?"
-          hint='Like "Send cold emails" or "Practice LeetCode problems"'
-          error={error}
-        >
-          {(c) => (
-            <TextInput
-              {...c}
-              value={picks.ownText}
-              autoComplete="off"
-              onChange={(e) => set({ ownText: e.target.value })}
-            />
-          )}
-        </Field>
-      </Reveal>
-      <Pills
-        name="often"
-        legend="How often?"
-        options={OFTEN}
-        value={picks.ownType}
-        onChange={(v) => set({ ownType: v as Picks["ownType"] })}
-      />
-    </div>
-  );
-}
-
-/** Finish by: two weeks, a month, Thanksgiving, or a date you pick. */
-function When({
-  picks,
-  r,
-  set,
-  today,
-  error,
-}: {
-  picks: Picks;
-  r: Resolved;
-  set: Set;
-  today: string;
-  error?: string;
-}) {
-  const options = [
-    ...r.dates.map((d) => ({
-      value: d.key,
-      label: d.label,
-      detail: formatShortDate(d.date),
-    })),
-    {
-      value: "pick",
-      label: "Pick a date",
-      hint: "Pick the date in the field below",
-    },
-  ];
-  return (
-    <div className="flex flex-col gap-3">
-      <Pills
-        name="when"
-        legend="By when?"
-        options={options}
-        value={picks.when}
-        onChange={(v) => set({ when: v })}
-      />
-      {picks.when === "pick" && (
-        <Reveal>
-          <Field id="setup-date" label="Finish by" error={error}>
-            {(c) => (
-              <TextInput
-                {...c}
-                type="date"
-                min={addDays(today, 1)}
-                value={picks.pickedDate}
-                onChange={(e) => set({ pickedDate: e.target.value })}
-                className="w-48"
-              />
-            )}
-          </Field>
-        </Reveal>
-      )}
-    </div>
-  );
-}
-
-/** How many: three suggestions, a by-date total showing its day's number too, or a number of your own. */
-function HowMany({
-  picks,
-  r,
-  set,
-  error,
-}: {
-  picks: Picks;
-  r: Resolved;
-  set: Set;
-  error?: string;
-}) {
-  const daily = r.type === "daily";
-  const tiers = r.tiers.map((t, i) => ({
-    value: String(i),
-    label: `${t.label}, ${t.amount}`,
-    detail: daily ? undefined : `${t.perDay} a day`,
-  }));
-  return (
-    <div className="flex flex-col gap-3">
-      <Pills
-        name="tier"
-        legend={
-          daily
-            ? `How many ${r.unit || "times"} a day?`
-            : `How many ${r.unit || "times"} in total?`
-        }
-        options={[
-          ...tiers,
-          {
-            value: "own",
-            label: "My own",
-            hint: "Type your number in the field below",
-          },
-        ]}
-        value={String(picks.tier)}
-        onChange={(v) => set({ tier: v === "own" ? "own" : Number(v) })}
-      />
-      {picks.tier === "own" && (
-        <Reveal>
-          <Field
-            id="setup-amount"
-            label={daily ? "How many each day?" : "How many in total?"}
-            error={error}
-          >
-            {(c) => (
-              <TextInput
-                {...c}
-                inputMode="numeric"
-                autoComplete="off"
-                value={picks.ownAmount}
-                onChange={(e) => set({ ownAmount: e.target.value })}
-                className="w-32"
-              />
-            )}
-          </Field>
-        </Reveal>
-      )}
-    </div>
-  );
-}
-
 /** The first visit, and adding a goal later, on one screen (user, 2026-10-18, after the teacher's "the page is the
- *  onboarding"): Titi asks, three rows of one-tap answers come already picked, and today's number is right there with
- *  the button to start. On a desktop the answers sit on the left and today's number stays in view on the right. */
+ *  onboarding"): Titi asks, you pick one or more things, each thing's rows of one-tap answers open as you answer them
+ *  (nothing picked for you, teacher 2026-10-28), and today's number is right there with the button to start. On a desktop the answers sit on the left and today's number stays in view on the right. */
 export function GoalWizard({ firstVisit = false, onCancel, onStarted }: Props) {
   const today = toISODate(new Date());
-  const [picks, setPicks] = useState<Picks>(FIRST_PICKS);
+  // Nothing picked to begin with, and as many things as you like (teacher, 2026-10-28)
+  const [goals, setGoals] = useState<Picks[]>([]);
   // Each failed Start counts up, so the effect below runs after that render, once the error is on the page: the whole
   // field and its error are scrolled above the pinned bar, not just the input (reviewer, 2026-10-19: the error was
   // half under the bar when the input was already in view and only it was considered)
   const [tries, setTries] = useState(0);
-  const r = resolveSetup(picks, today);
-  const errors = tries > 0 ? r.errors : {};
+  const rs = goals.map((p) => resolveSetup(p, today));
   // Titi waves until you answer, then takes a pose for how much you picked: a loaf for an easy start, walking for
   // steady, jumping for going big, a tap of the paw for a number of your own (user, 2026-10-19: keep Titi on the first
   // screen, in different poses)
   const [touched, setTouched] = useState(false);
-  const set: Set = (p) => {
+  const setFor =
+    (starter: string): Set =>
+    (p) => {
+      setTouched(true);
+      setGoals((prev) => prev.map((g) => (g.starter === starter ? { ...g, ...p } : g)));
+    };
+  const toggle = (key: string) => {
     setTouched(true);
-    setPicks((prev) => ({ ...prev, ...p }));
+    setGoals((prev) => toggleStarter(prev, key));
   };
   const pose: CatMood = !touched
     ? firstVisit
       ? "wave"
       : "idle"
-    : (TIER_POSE[String(picks.tier)] ?? "idle");
-  const firstError = r.errors.what
-    ? "setup-what"
-    : r.errors.date
-      ? "setup-date"
-      : r.errors.amount
-        ? "setup-amount"
-        : null;
+    : (TIER_POSE[String(goals[0]?.tier)] ?? "idle");
+  const missing =
+    goals.length === 0
+      ? "setup-what"
+      : (goals.map((p, i) => firstMissing(p, rs[i])).find(Boolean) ?? null);
   useEffect(() => {
-    if (tries === 0 || !firstError) return;
-    const field = document.getElementById(firstError);
-    field?.focus({ preventScroll: true });
+    if (tries === 0 || !missing) return;
+    // A field is focused itself; a row of answers by its first answer
+    const field = document.getElementById(missing);
+    const target = field instanceof HTMLInputElement ? field : field?.querySelector("input");
+    target?.focus({ preventScroll: true });
     scrollToField(field?.closest("[data-field]") ?? field);
     // Only a new attempt moves focus; typing a fix must not pull it around
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tries]);
   const start = () => {
-    if (!r.goal) {
+    const ready = rs.flatMap((r) => (r.goal ? [r.goal] : []));
+    if (missing || ready.length === 0) {
       setTries((n) => n + 1);
       return;
     }
-    startGoal(addGoal(r.goal, today));
+    // Every goal is saved, and the first one picked starts
+    const [first] = ready.map((goal) => addGoal(goal, today));
+    startGoal(first);
     onStarted?.();
   };
+  const heading = (p: Picks) =>
+    goals.length < 2 ? null : p.starter === "own" ? p.ownText.trim() || "Something else" : (WHAT.find((w) => w.value === p.starter)?.label ?? null);
   return (
     <section
       aria-labelledby="setup-title"
@@ -437,34 +247,37 @@ export function GoalWizard({ firstVisit = false, onCancel, onStarted }: Props) {
             does") */}
         {firstVisit && (
           <p className="-mt-3 font-bold text-muted lg:-mt-2 lg:text-lg">
-            Pick one thing. Nudge breaks it into a few a day, and each one you
-            do is a fish for Titi
+            Pick one or more. Nudge breaks each into a few a day, and each one
+            you do is a fish for Titi
           </p>
+        )}
+        {!firstVisit && (
+          <p className="-mt-3 font-bold text-muted lg:-mt-2 lg:text-lg">Pick one or more</p>
         )}
         <Pills
           name="what"
-          legend="What have you been putting off?"
+          id="setup-what"
+          legend="What have you been putting off? Pick one or more"
           hideLegend
+          multiple
           options={WHAT}
-          value={picks.starter}
-          onChange={(v) => set({ starter: v })}
+          value={goals.map((g) => g.starter)}
+          onChange={toggle}
+          error={tries > 0 && goals.length === 0 ? "Pick at least one" : undefined}
         />
-        {picks.starter === "own" && (
-          <OwnGoal picks={picks} set={set} error={errors.what} />
-        )}
-        {r.sites.length > 0 && <Where r={r} set={set} />}
-        {r.type === "by-date" && (
-          <When
-            picks={picks}
-            r={r}
-            set={set}
+        {goals.map((p, i) => (
+          <SetupRows
+            key={p.starter}
+            heading={heading(p)}
+            picks={p}
+            r={rs[i]}
+            set={setFor(p.starter)}
+            errors={tries > 0 ? rs[i].errors : {}}
             today={today}
-            error={errors.date}
           />
-        )}
-        <HowMany picks={picks} r={r} set={set} error={errors.amount} />
+        ))}
       </div>
-      <Result r={r} firstVisit={firstVisit} onStart={start} pose={pose} />
+      <Result rs={rs} firstVisit={firstVisit} onStart={start} pose={pose} />
     </section>
   );
 }
