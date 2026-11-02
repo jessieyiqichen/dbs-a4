@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -7,6 +8,7 @@ import { Toast } from "@/components/ui/Toast";
 import type { FollowedCompany } from "@/lib/jobs/companies";
 import { addedLine, JOBS_COPY, removedLine, SAVED_COPY, savedTab } from "@/lib/jobs/copy";
 import { savedKeys, retrySaved, saveFoundJob, useSavedJobs } from "@/lib/jobs/savedStore";
+import { readSearch, searchHref, type SearchState } from "@/lib/jobs/searchUrl";
 import type { Company } from "@/lib/jobs/service";
 import { useStore } from "@/lib/store";
 import { AddCompany } from "./AddCompany";
@@ -21,7 +23,7 @@ const HEADER = <PageHeader title={JOBS_COPY.title} intro={JOBS_COPY.intro} back=
 const EMPTY_HEADER = <PageHeader title={JOBS_COPY.title} back={null} level="h2" />;
 
 type Notice = { text: string; undo?: () => void } | null;
-type View = "search" | "saved";
+type View = SearchState["view"];
 
 function LoadFailed({ title, next, onRetry }: { title: string; next: string; onRetry: () => void }) {
   return (
@@ -57,7 +59,12 @@ export function JobsScreen() {
   const { state, retry, add, remove, undoRemove } = useCompanies();
   const saved = useSavedJobs();
   const store = useStore();
-  const [view, setView] = useState<View>("search");
+  const router = useRouter();
+  // Search | Saved and the search itself are in the address, so Back steps back through them (teacher, 2026-10-28)
+  const search = readSearch(useSearchParams());
+  const { view } = search;
+  const go = (next: SearchState) => router.push(searchHref(next), { scroll: false });
+  const setView = (next: View) => go({ ...search, view: next });
   const [notice, setNotice] = useState<Notice>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -124,7 +131,7 @@ export function JobsScreen() {
           <AddCompany followed={new Set()} prominent onAdd={addCompany} />
         </div>
       ) : (
-        <JobSearch companies={companies} saved={savedKeys(saved)} companiesOpen={companiesOpen} onCompaniesOpen={setCompaniesOpen} notice={toast} onSave={saveFoundJob} onAdd={addCompany} onRemove={(c) => void removeCompany(c)} />
+        <JobSearch companies={companies} search={search} onSearch={(next) => go({ ...next, view: "search" })} saved={savedKeys(saved)} companiesOpen={companiesOpen} onCompaniesOpen={setCompaniesOpen} notice={toast} onSave={saveFoundJob} onAdd={addCompany} onRemove={(c) => void removeCompany(c)} />
       )}
       {/* While "Your companies" is open the toast shows inside it instead, where its Undo can be reached */}
       {!(companiesOpen && companies.length > 0) && toast}
