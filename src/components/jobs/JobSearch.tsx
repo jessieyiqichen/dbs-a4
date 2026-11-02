@@ -9,19 +9,24 @@ import {
   allCompaniesOption, companyOption, lookingLine, noMatchLine, pageLine, resultsLine, SEARCH_COPY, someDownLine,
 } from "@/lib/jobs/copy";
 import { jobKey, searchRoles, type SearchOutcome } from "@/lib/jobs/saved";
+import { isSearching, MAX_QUERY, type SearchState } from "@/lib/jobs/searchUrl";
 import { companyKey, PAGE_SIZE, type Company } from "@/lib/jobs/service";
 import type { Job } from "@/lib/jobs/types";
 import { AddCompany } from "./AddCompany";
 import { CompanyList } from "./CompanyList";
 import { JobRow } from "./JobRow";
 
-const MAX_QUERY = 100;
 const ALL = "all";
 const ADD = "add";
 const MANAGE = "manage";
 
+type Search = Omit<SearchState, "view">;
+
 interface JobSearchProps {
   companies: FollowedCompany[];
+  /** The search in the address: Back undoes the last search, company or page (teacher, 2026-10-28). */
+  search: Search;
+  onSearch: (next: Search) => void;
   saved: Set<string>;
   /** The "Your companies" dialog (add and remove), opened from the + beside the company menu or from the menu itself.
    *  Its state lives on the Jobs page, so the page's toast (Remove, with Undo) can show inside the dialog while it is open. */
@@ -39,11 +44,17 @@ interface JobSearchProps {
  *  companies, each one with its open roles, then "+ Add a company…" and "Manage companies…". Beside the menu, a + opens
  *  "Your companies", one dialog to add and remove them (user, 2026-10-26: adding should be seen without opening the
  *  menu, and managing shouldn't be buried in it). Before anything is typed it shows the newest roles, so people can
- *  browse; 20 a page, with Previous and Next under the list. */
-export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, notice, onSave, onAdd, onRemove }: JobSearchProps) {
-  const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
-  const [chosen, setChosen] = useState("");
+ *  browse; 20 a page, with Previous and Next under the list. Once anything is narrowed down, Clear search goes back to
+ *  all of it. */
+export function JobSearch({ companies, search, onSearch, saved, companiesOpen, onCompaniesOpen, notice, onSave, onAdd, onRemove }: JobSearchProps) {
+  const { q: submitted, company: chosen, page } = search;
+  const [query, setQuery] = useState(submitted);
+  // Back or Clear changes the search under the field, so the field follows it
+  const [shown, setShown] = useState(submitted);
+  if (shown !== submitted) {
+    setShown(submitted);
+    setQuery(submitted);
+  }
   const [error, setError] = useState<string | undefined>();
   const [attempt, setAttempt] = useState(0);
   const [openRoles, setOpenRoles] = useState<Record<string, number | null>>({});
@@ -51,10 +62,7 @@ export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, no
   const turnedPage = useRef(false);
   // A company that was removed is no longer a choice: back to all of them
   const only = companies.some((c) => companyKey(c) === chosen) ? chosen : "";
-  // The page belongs to its search: a new search, company or retry starts again on page 1
   const searchKey = `${companies.map((c) => c.id).join(",")}|${submitted}|${only}|${attempt}`;
-  const [paging, setPaging] = useState({ key: "", page: 0 });
-  const page = paging.key === searchKey ? paging.page : 0;
   // Each answer remembers which request it belongs to, so "loading" is simply "no answer for this request yet"
   const requestKey = `${searchKey}|${page}`;
   const [answer, setAnswer] = useState<{ key: string; outcome: SearchOutcome } | null>(null);
@@ -81,7 +89,7 @@ export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, no
 
   function goTo(next: number) {
     turnedPage.current = true;
-    setPaging({ key: searchKey, page: next });
+    onSearch({ q: submitted, company: only, page: next });
     resultsRef.current?.scrollIntoView({ block: "start" });
   }
 
@@ -90,20 +98,21 @@ export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, no
     const trimmed = query.trim();
     if (trimmed.length > MAX_QUERY) return setError("Keep the search under 100 characters");
     setError(undefined);
-    setSubmitted(trimmed);
+    // A new search starts again on page 1
+    onSearch({ q: trimmed, company: only, page: 0 });
   }
 
   // Choosing a company searches it right away; the two actions open "Your companies" and leave the choice as it was
   function choose(event: ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
     if (value === ADD || value === MANAGE) return onCompaniesOpen(true);
-    setChosen(value === ALL ? "" : value);
+    onSearch({ q: submitted, company: value === ALL ? "" : value, page: 0 });
   }
 
   async function addAndChoose(company: Company) {
     const result = await onAdd(company);
     if (result === "followed") {
-      setChosen(companyKey(company));
+      onSearch({ q: submitted, company: companyKey(company), page: 0 });
       onCompaniesOpen(false);
     }
     return result;
@@ -161,11 +170,19 @@ export function JobSearch({ companies, saved, companiesOpen, onCompaniesOpen, no
         {notice}
       </Dialog>
 
-      <div ref={resultsRef} tabIndex={-1} role="status" aria-live="polite" className="flex scroll-mt-4 flex-col gap-1 font-bold outline-none">
-        {!outcome && <p className="text-muted">{lookingLine(names)}</p>}
-        {outcome?.kind === "failed" && <p className="text-danger">{SEARCH_COPY.allDown}</p>}
-        {outcome?.kind === "refused" && <p className="text-danger">{outcome.message}</p>}
-        {outcome?.kind === "result" && <ResultSummary outcome={outcome} query={submitted} names={names} />}
+      <div className="flex scroll-mt-4 items-start justify-between gap-3">
+        <div ref={resultsRef} tabIndex={-1} role="status" aria-live="polite" className="flex flex-col gap-1 font-bold outline-none">
+          {!outcome && <p className="text-muted">{lookingLine(names)}</p>}
+          {outcome?.kind === "failed" && <p className="text-danger">{SEARCH_COPY.allDown}</p>}
+          {outcome?.kind === "refused" && <p className="text-danger">{outcome.message}</p>}
+          {outcome?.kind === "result" && <ResultSummary outcome={outcome} query={submitted} names={names} />}
+        </div>
+        {/* Beside the line that says what is shown, so the way back to every role is where the eye already is */}
+        {isSearching({ q: submitted, company: only, page }) && (
+          <Button variant="secondary" className="shrink-0" onClick={() => onSearch({ q: "", company: "", page: 0 })}>
+            {SEARCH_COPY.clear}
+          </Button>
+        )}
       </div>
       {allDown && (
         <div><Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>{SEARCH_COPY.tryAgain}</Button></div>

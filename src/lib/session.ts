@@ -6,10 +6,24 @@ export function sessionLine(done: number, total: number, firstTime = false): str
   const left = total - done;
   if (done === 0 && firstTime) return "Every one you do is a fish for me!";
   if (done === 0) return "Ready when you are";
-  if (left <= 0) return "Titi is so full";
+  // Past today's number the extras still count (teacher, 2026-10-28: extra treats added no fish)
+  if (left < 0) return `${-left} extra, Titi is stuffed!`;
+  if (left === 0) return "Titi is so full";
   if (left === 1) return "One more and Titi is full!";
   if (done === 1) return "First one down!";
   return `${done} down, ${left} to go!`;
+}
+
+/** The line under the fish: "2 of 5 done", and once past today's number, how many extra. */
+export function fishCount(done: number, total: number): string {
+  const extra = done - total;
+  return extra > 0 ? `${done} of ${total} done, ${extra} extra!` : `${done} of ${total} done`;
+}
+
+/** Whether logging `amount` is the one that reaches today's number. Extras logged after it keep the session open,
+ *  so each one adds a fish instead of replaying the celebration. */
+export function crossesQuota(amount: number, doneBefore: number, quota: number): boolean {
+  return doneBefore < quota && doneBefore + amount >= quota;
 }
 
 export type BowlFill = "empty" | "some" | "full";

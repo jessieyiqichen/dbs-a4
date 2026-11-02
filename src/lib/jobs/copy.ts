@@ -58,6 +58,7 @@ export const SEARCH_COPY = {
   newTab: "(opens in a new tab)",
   allDown: "The hiring systems didn't answer, try again in a minute",
   tryAgain: "Try again",
+  clear: "× Clear search",
 };
 
 /** "Anthropic, Figma and Notion", or "your 5 companies" when the list would be long. */

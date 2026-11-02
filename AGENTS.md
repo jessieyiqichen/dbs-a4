@@ -50,6 +50,12 @@ Code: `src/lib/jobs/` (`normalize.ts` turns each system's response into one `Job
 - Designed states: loading; company not found; no open roles match the search; a system unavailable (non-200, not a job list, or no answer within 10 seconds), with saved jobs still shown from the database; a saved job no longer posted (its id is gone from the board), shown from its snapshot and marked as closed.
 - Only https links are kept, and descriptions are not shown in the first version: "View posting ↗" opens the job on the hiring system's own site, which also credits the source. If descriptions are ever shown, sanitize the HTML first.
 
+## Ideas for later (noted 2026-10-27, not approved to build)
+Each still needs the user's go-ahead, and a new service needs a reason it can't be done without (see Rules).
+- Visa sponsorship (from a classmate's question, the user found it interesting): show beside a followed company whether it has sponsored, e.g. "Filed 120 H-1Bs for Software Engineer last year". Source: public H-1B data (Department of Labor LCA disclosure files, quarterly; USCIS H-1B Employer Data Hub), downloaded files rather than a live API, loaded into Supabase. The Muse API was checked and is not the way: it has no sponsorship field (only some descriptions mention it), no keyword search, and answered 403.
+- Coffee chats from a calendar: Google Calendar or Microsoft Graph (OAuth) could spot "coffee chat" meetings today and ask "Did it happen? Tap to count one". The person still confirms: a meeting on the calendar may not have happened.
+- LinkedIn can't be counted automatically: its API for connections and messages is partner-only, and its terms forbid scraping. Connections stay a manual +1.
+
 # Assignment 3 notes (still apply)
 
 ## What and for whom
