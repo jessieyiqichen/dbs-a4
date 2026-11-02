@@ -32,7 +32,7 @@ import { overallStreak } from "@/lib/streak";
 import type { AppData, Goal } from "@/lib/types";
 import { backAfterDays, greeting, streakTip } from "@/lib/welcome";
 import { showNudgePrompt } from "@/lib/nudges";
-import { milestoneLine } from "@/lib/session";
+import { crossesQuota, milestoneLine } from "@/lib/session";
 import { RoomSkeleton } from "./Room";
 import { DoneToday } from "./DoneToday";
 import { FirstVisit } from "./FirstVisit";
@@ -84,10 +84,12 @@ function sessionState(
     picked,
   );
   const first = planned[0];
+  // A session on a goal already done today is one opened to log extras: reaching the number ends a session, so this
+  // only happens through "Did more?" on Today (teacher, 2026-10-28)
   const asking =
     data.session?.goalId === first.goal.id &&
     sessionIsToday(data.session, today) &&
-    ACTIVE.has(first.plan.status);
+    (ACTIVE.has(first.plan.status) || first.plan.status === "done");
   const celebrating =
     first.plan.status === "done" && justDone === first.goal.id;
   return { planned, asking, celebrating };
@@ -226,7 +228,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
             done={first.plan.doneToday}
             firstTime={firstTime}
             onLog={(n) =>
-              log(first.goal, n, first.plan.doneToday + n >= first.plan.quota)
+              log(first.goal, n, crossesQuota(n, first.plan.doneToday, first.plan.quota))
             }
             saved={
               isApplicationsGoal(first.goal) && savedJobs.kind === "ready"
@@ -234,7 +236,7 @@ export function TodayScreen({ view = "home" }: { view?: "home" | "session" }) {
                 : null
             }
             onApplied={(job) =>
-              void applied(first.goal, job, first.plan.doneToday + 1 >= first.plan.quota)
+              void applied(first.goal, job, crossesQuota(1, first.plan.doneToday, first.plan.quota))
             }
             onOpen={() =>
               first.goal.link &&

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bowlFill, doneStats, milestoneLine, sessionLine } from "./session";
+import { bowlFill, crossesQuota, doneStats, fishCount, milestoneLine, sessionLine } from "./session";
 import type { Goal } from "./types";
 
 const FULL_STOP = /\.(\s|$)/;
@@ -17,8 +17,32 @@ describe("sessionLine: what Titi says while you work", () => {
     expect(sessionLine(1, 5, true)).toBe("First one down!");
   });
 
+  it("keeps counting past today's number (teacher, 2026-10-28: extra treats added no fish)", () => {
+    expect(sessionLine(5, 5)).toBe("Titi is so full");
+    expect(sessionLine(6, 5)).toBe("1 extra, Titi is stuffed!");
+    expect(sessionLine(8, 5)).toBe("3 extra, Titi is stuffed!");
+  });
+
   it("never uses a full stop", () => {
-    for (let done = 0; done <= 6; done++) expect(sessionLine(done, 6)).not.toMatch(FULL_STOP);
+    for (let done = 0; done <= 9; done++) expect(sessionLine(done, 6)).not.toMatch(FULL_STOP);
+  });
+});
+
+describe("fishCount: the line under the fish", () => {
+  it("says how many of today's number, and how many extra once past it", () => {
+    expect(fishCount(2, 5)).toBe("2 of 5 done");
+    expect(fishCount(5, 5)).toBe("5 of 5 done");
+    expect(fishCount(7, 5)).toBe("7 of 5 done, 2 extra!");
+  });
+});
+
+describe("crossesQuota: when logging ends the session with a celebration", () => {
+  it("is true only for the log that reaches today's number, not for extras after it", () => {
+    expect(crossesQuota(3, 2, 5)).toBe(true);
+    expect(crossesQuota(3, 4, 5)).toBe(true);
+    expect(crossesQuota(3, 1, 5)).toBe(false);
+    expect(crossesQuota(1, 5, 5)).toBe(false);
+    expect(crossesQuota(3, 7, 5)).toBe(false);
   });
 });
 

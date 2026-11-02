@@ -51,7 +51,7 @@ function title(goal: Goal, plan: TodayPlan, today: string): string {
     case "started":
       return `${plan.doneToday} done, ${plan.leftToday} to go!`;
     case "done":
-      return "Done for today!";
+      return plan.doneToday > plan.quota ? `Done for today, ${plan.doneToday - plan.quota} extra!` : "Done for today!";
     case "paused": {
       // Until when, so a break never reads as "done" (A3 review, 2026-10-26)
       const pause = breakOn(goal, today);
@@ -237,7 +237,7 @@ function SentenceCard({
         <div className="mt-6 hidden lg:block">
           <Coins
             total={plan.quota}
-            done={Math.min(plan.doneToday, plan.quota)}
+            done={plan.doneToday}
             label="Today"
             size="lg"
           />
@@ -279,6 +279,12 @@ function MainAction({
       {plan.status === "done" && next && (
         <Button size="lg" onClick={onStartNext} className="w-full">
           Next: {next.title} →
+        </Button>
+      )}
+      {/* Doing more than today's number still earns fish (teacher, 2026-10-28) */}
+      {plan.status === "done" && (
+        <Button variant="secondary" onClick={onStart} className="w-full">
+          Did more? Log extras
         </Button>
       )}
       {plan.status === "complete" && (
